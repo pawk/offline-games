@@ -364,10 +364,6 @@
 
   body.editing header,
   body.editing .app > #step-camera { display: none !important; }
-    flex: 1;
-    accent-color: var(--pink);
-    cursor: pointer;
-  }
 
   .hint {
     font-size: 0.72rem;
@@ -397,58 +393,101 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: filter 0.1s;
   }
-  .placed-sticker:hover { filter: drop-shadow(0 0 6px rgba(255,232,61,0.8)); }
   .placed-sticker.selected {
-    filter: drop-shadow(0 0 8px rgba(0,212,255,1));
+    filter: drop-shadow(0 0 10px rgba(0,212,255,1));
     outline: 2px dashed var(--cyan);
-    outline-offset: 3px;
+    outline-offset: 4px;
     border-radius: 6px;
   }
 
-  .delete-handle {
-    position: absolute;
-    top: -12px;
-    right: -12px;
-    width: 22px; height: 22px;
-    background: var(--pink);
-    border-radius: 50%;
+  /* ── Floating sticker toolbar ── */
+  #sticker-toolbar {
+    position: fixed;
+    bottom: 80px;       /* sits above the controls bar */
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    display: none;
+    align-items: center;
+    gap: 10px;
+    background: rgba(20, 8, 40, 0.92);
+    backdrop-filter: blur(12px);
+    border: 2px solid rgba(178,75,243,0.6);
+    border-radius: 60px;
+    padding: 10px 16px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.6), 0 0 20px rgba(178,75,243,0.3);
+    z-index: 100;
+    opacity: 0;
+    transition: opacity 0.2s, transform 0.2s;
+    pointer-events: none;
+  }
+  #sticker-toolbar.visible {
     display: flex;
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+    pointer-events: all;
+  }
+
+  .tool-btn {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    font-size: 0.7rem;
-    cursor: pointer;
-    z-index: 10;
-    color: white;
+    gap: 2px;
+    font-size: 1.4rem;
+    font-family: 'Nunito', sans-serif;
     font-weight: 900;
-    border: 2px solid white;
+    transition: transform 0.15s, box-shadow 0.15s;
+    touch-action: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .tool-btn:active { transform: scale(0.9); }
+
+  .tool-btn-label {
+    font-size: 0.5rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
     line-height: 1;
   }
-  .resize-handle {
-    position: absolute;
-    bottom: -10px;
-    right: -10px;
-    width: 20px; height: 20px;
-    background: var(--cyan);
-    border-radius: 50%;
-    cursor: se-resize;
-    z-index: 10;
-    border: 2px solid white;
+
+  #tb-delete {
+    background: linear-gradient(135deg, #ff4466, #cc1133);
+    color: white;
+    box-shadow: 0 4px 16px rgba(255,68,102,0.5);
   }
-  .rotate-handle {
-    position: absolute;
-    top: -32px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 20px; height: 20px;
-    background: var(--yellow);
-    border-radius: 50%;
-    cursor: grab;
-    z-index: 10;
-    border: 2px solid white;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 0.7rem;
+  #tb-smaller {
+    background: linear-gradient(135deg, #7b5ea7, var(--purple));
+    color: white;
+    box-shadow: 0 4px 16px rgba(178,75,243,0.4);
+  }
+  #tb-bigger {
+    background: linear-gradient(135deg, var(--cyan), #0088cc);
+    color: white;
+    box-shadow: 0 4px 16px rgba(0,212,255,0.4);
+  }
+  #tb-rotleft {
+    background: linear-gradient(135deg, var(--orange), #cc6600);
+    color: white;
+    box-shadow: 0 4px 16px rgba(255,140,66,0.4);
+  }
+  #tb-rotright {
+    background: linear-gradient(135deg, var(--yellow), var(--orange));
+    color: var(--dark);
+    box-shadow: 0 4px 16px rgba(255,232,61,0.4);
+  }
+
+  .tool-divider {
+    width: 1px;
+    height: 36px;
+    background: rgba(178,75,243,0.4);
+    flex-shrink: 0;
   }
 
   /* Flash effect */
@@ -561,13 +600,17 @@
 </div>
 
 <script>
+document.addEventListener('DOMContentLoaded', function() {
 // ─── STICKER DATA ────────────────────────────────────────────────────────────
 const STICKERS = {
-  glasses: ['🕶️','👓','🥽','🤓','😎','👁️','👀','🧿'],
-  face: ['👃','🍪','💋','😛','🤪','😜','🫦','🥴'],
-  mustache: ['🥸','🧔','🧔‍♀️','👨','🎭','🤡','👺','🎪'],
-  hats: ['🎩','👒','🪖','⛑️','👑','🎓','🧢','🪄'],
-  fun: ['⭐','💥','❤️','🔥','✨','🌈','🎈','💀','🤖','👽','🦄','🎯']
+  glasses: ['🕶️','👓','🥽','🤓','😎','👁️','👀','🧿','🔭','🪬','🫧','🌀'],
+  face: ['👃','💋','😛','🤪','😜','🫦','🥴','😂','🤣','😍','🥰','😘','🤩','🥳','😤','🤯','🥺','😱','🤭','🫣','😬','🤑','🤠','👅','🦷','👂','🫀'],
+  mustache: ['🥸','🧔','🎭','🤡','👺','🎪','🪡','🪢','🎨','🖌️','🃏','🎭'],
+  hats: ['🎩','👒','🪖','⛑️','👑','🎓','🧢','🪄','💂','🎅','🤶','🧙','🧜','🧝','🥷','👸','🤴','🫅'],
+  animals: ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🙈','🙉','🙊','🐔','🦆','🦅','🦉','🦋','🐝','🐙','🦈','🐳','🦖','🦕'],
+  props: ['🎸','🎺','🎻','🥁','🎤','🎬','📸','🕹️','🏆','🥇','🎀','🎁','🎊','🎉','🪅','🧨','🪩','💎','💍','👙','🩲','🩳','🧣','🧤','🧦'],
+  food: ['🍕','🍔','🌮','🍣','🍩','🍦','🧁','🍭','🍫','🍿','🥐','🧇','🥞','🍉','🍓','🍒','🥑','🌶️','🧄','🥕'],
+  fun: ['⭐','💥','❤️','🔥','✨','🌈','🎈','💀','🤖','👽','🦄','🎯','💫','⚡','🌊','🌸','🌺','🌻','🍀','🌙','☀️','🌟','💯','‼️','❓','💢','💬','💭','🗯️','💤','🕊️','🫶','🤙','👊','✌️','🤞','🖖']
 };
 
 // ─── STATE ───────────────────────────────────────────────────────────────────
@@ -612,7 +655,8 @@ startCamera();
 // ─── BUILD STICKER STRIP ─────────────────────────────────────────────────────
 const ALL_STICKERS = [
   ...STICKERS.glasses, ...STICKERS.face, ...STICKERS.mustache,
-  ...STICKERS.hats, ...STICKERS.fun
+  ...STICKERS.hats, ...STICKERS.animals, ...STICKERS.props,
+  ...STICKERS.food, ...STICKERS.fun
 ];
 
 const strip = document.getElementById('sticker-strip');
@@ -766,21 +810,15 @@ function applyTransform(stk) {
   stk.el.style.transform = `rotate(${stk.rot}rad)`;
 }
 
-// ─── STICKER INTERACTION ─────────────────────────────────────────────────────
+// ─── STICKER DRAG ────────────────────────────────────────────────────────────
 function attachStickerEvents(stk) {
   const el = stk.el;
-
-  el.addEventListener('pointerdown', e => {
-    e.stopPropagation();
-    selectSticker(stk);
-  });
 
   // Drag
   let dragging = false, startX, startY, origX, origY;
   el.addEventListener('pointerdown', e => {
-    if (e.target.classList.contains('delete-handle') ||
-        e.target.classList.contains('resize-handle') ||
-        e.target.classList.contains('rotate-handle')) return;
+    e.stopPropagation();
+    selectSticker(stk);
     dragging = true;
     startX = e.clientX; startY = e.clientY;
     origX = stk.x; origY = stk.y;
@@ -793,83 +831,71 @@ function attachStickerEvents(stk) {
     stk.y = origY + (e.clientY - startY);
     applyTransform(stk);
   });
-  el.addEventListener('pointerup', e => { dragging = false; });
+  el.addEventListener('pointerup', () => { dragging = false; });
 }
 
-function addHandles(stk) {
-  // remove existing
-  stk.el.querySelectorAll('.delete-handle,.resize-handle,.rotate-handle').forEach(h => h.remove());
+// ─── FLOATING TOOLBAR ────────────────────────────────────────────────────────
+const toolbar = document.getElementById('sticker-toolbar');
 
-  // Delete
-  const del = document.createElement('div');
-  del.className = 'delete-handle';
-  del.textContent = '✕';
-  del.addEventListener('pointerdown', e => { e.stopPropagation(); pushHistory(); removeSticker(stk); });
-  stk.el.appendChild(del);
-
-  // Resize
-  const res = document.createElement('div');
-  res.className = 'resize-handle';
-  let resizing = false, resStartX, resStartY, resOrigSize;
-  res.addEventListener('pointerdown', e => {
-    e.stopPropagation();
-    resizing = true;
-    resStartX = e.clientX; resStartY = e.clientY;
-    resOrigSize = stk.size;
-    res.setPointerCapture(e.pointerId);
-  });
-  res.addEventListener('pointermove', e => {
-    if (!resizing) return;
-    const d = Math.hypot(e.clientX - resStartX, e.clientY - resStartY);
-    const sign = (e.clientX - resStartX) + (e.clientY - resStartY) > 0 ? 1 : -1;
-    stk.size = Math.max(20, Math.min(250, resOrigSize + sign * d * 0.5));
-    sizeSlider.value = stk.size;
-    applyTransform(stk);
-  });
-  res.addEventListener('pointerup', () => { resizing = false; });
-  stk.el.appendChild(res);
-
-  // Rotate
-  const rot = document.createElement('div');
-  rot.className = 'rotate-handle';
-  rot.textContent = '↻';
-  let rotating = false, rotStartAngle;
-  rot.addEventListener('pointerdown', e => {
-    e.stopPropagation();
-    rotating = true;
-    const rect = stk.el.getBoundingClientRect();
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
-    rotStartAngle = Math.atan2(e.clientY - cy, e.clientX - cx) - stk.rot;
-    rot.setPointerCapture(e.pointerId);
-  });
-  rot.addEventListener('pointermove', e => {
-    if (!rotating) return;
-    const rect = stk.el.getBoundingClientRect();
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
-    stk.rot = Math.atan2(e.clientY - cy, e.clientX - cx) - rotStartAngle;
-    applyTransform(stk);
-  });
-  rot.addEventListener('pointerup', () => { rotating = false; });
-  stk.el.appendChild(rot);
+function showToolbar() {
+  toolbar.classList.add('visible');
 }
+function hideToolbar() {
+  toolbar.classList.remove('visible');
+}
+
+const ROTATE_STEP = Math.PI / 12; // 15°
+const SIZE_STEP = 10;
+
+document.getElementById('tb-delete').addEventListener('pointerdown', e => {
+  e.stopPropagation();
+  if (!selectedSticker) return;
+  pushHistory();
+  removeSticker(selectedSticker);
+  hideToolbar();
+});
+document.getElementById('tb-smaller').addEventListener('pointerdown', e => {
+  e.stopPropagation();
+  if (!selectedSticker) return;
+  selectedSticker.size = Math.max(20, selectedSticker.size - SIZE_STEP);
+  sizeSlider.value = selectedSticker.size;
+  applyTransform(selectedSticker);
+});
+document.getElementById('tb-bigger').addEventListener('pointerdown', e => {
+  e.stopPropagation();
+  if (!selectedSticker) return;
+  selectedSticker.size = Math.min(300, selectedSticker.size + SIZE_STEP);
+  sizeSlider.value = selectedSticker.size;
+  applyTransform(selectedSticker);
+});
+document.getElementById('tb-rotleft').addEventListener('pointerdown', e => {
+  e.stopPropagation();
+  if (!selectedSticker) return;
+  selectedSticker.rot -= ROTATE_STEP;
+  applyTransform(selectedSticker);
+});
+document.getElementById('tb-rotright').addEventListener('pointerdown', e => {
+  e.stopPropagation();
+  if (!selectedSticker) return;
+  selectedSticker.rot += ROTATE_STEP;
+  applyTransform(selectedSticker);
+});
 
 function selectSticker(stk) {
   deselectAll();
   selectedSticker = stk;
   stk.el.classList.add('selected');
-  addHandles(stk);
   sizeSlider.value = stk.size;
   stickerSize = stk.size;
+  showToolbar();
 }
 
 function deselectAll() {
   if (selectedSticker) {
     selectedSticker.el.classList.remove('selected');
-    selectedSticker.el.querySelectorAll('.delete-handle,.resize-handle,.rotate-handle').forEach(h => h.remove());
     selectedSticker = null;
   }
+  hideToolbar();
 }
 
 function removeSticker(stk) {
@@ -880,7 +906,9 @@ function removeSticker(stk) {
 
 // Click outside deselects
 document.addEventListener('pointerdown', e => {
-  if (!canvasWrap.contains(e.target) && !document.getElementById('sticker-strip').contains(e.target)) {
+  if (!canvasWrap.contains(e.target) &&
+      !document.getElementById('sticker-strip').contains(e.target) &&
+      !toolbar.contains(e.target)) {
     deselectAll();
   }
 });
@@ -980,6 +1008,18 @@ function showToast(msg) {
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2000);
 }
+
+}); // end DOMContentLoaded
 </script>
+<!-- Floating sticker toolbar (shown when a sticker is selected) -->
+<div id="sticker-toolbar">
+  <button class="tool-btn" id="tb-delete" title="Delete">🗑️<span class="tool-btn-label">Delete</span></button>
+  <div class="tool-divider"></div>
+  <button class="tool-btn" id="tb-smaller" title="Smaller">➖<span class="tool-btn-label">Smaller</span></button>
+  <button class="tool-btn" id="tb-bigger" title="Bigger">➕<span class="tool-btn-label">Bigger</span></button>
+  <div class="tool-divider"></div>
+  <button class="tool-btn" id="tb-rotleft" title="Rotate Left">↺<span class="tool-btn-label">Rotate ←</span></button>
+  <button class="tool-btn" id="tb-rotright" title="Rotate Right">↻<span class="tool-btn-label">Rotate →</span></button>
+</div>
 </body>
 </html>
