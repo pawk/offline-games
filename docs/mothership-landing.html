@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MOTHERSHIP — Space Traffic Control</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap');
+  :root {
+    --bg: #02040a; --panel: #060d1a; --accent: #00ffe7;
+    --warn: #ffb800; --danger: #ff2d55; --text: #7ab8cc;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    overflow: hidden; height: 100vh;
+    display: flex; flex-direction: column; user-select: none;
+  }
+  #hud {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 20px; background: var(--panel);
+    border-bottom: 1px solid #0af3; flex-shrink: 0; gap: 8px; flex-wrap: wrap;
+  }
+  .title {
+    font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 1rem;
+    color: var(--accent); letter-spacing: 4px; text-shadow: 0 0 12px #00ffe780;
+  }
+  .stat { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+  .stat-label { font-size: 0.5rem; letter-spacing: 2px; opacity: 0.5; text-transform: uppercase; }
+  .stat-value { font-family: 'Orbitron', sans-serif; font-size: 0.95rem; color: var(--accent); }
+  .stat-value.warn { color: var(--warn); }
+  .stat-value.danger { color: var(--danger); }
+  #main { display: flex; flex: 1; min-height: 0; }
+  #gameCanvas { flex: 1; display: block; cursor: crosshair; }
+  #panel {
+    width: 190px; background: var(--panel);
+    border-left: 1px solid #0af3;
+    display: flex; flex-direction: column;
+    padding: 10px; gap: 10px; overflow-y: auto; flex-shrink: 0;
+  }
+  .psec { border: 1px solid #0af3; padding: 8px; }
+  .ptitle {
+    font-size: 0.5rem; letter-spacing: 3px; opacity: 0.45;
+    text-transform: uppercase; margin-bottom: 6px;
+    border-bottom: 1px solid #0af2; padding-bottom: 3px;
+  }
+  .ship-row {
+    display: flex; align-items: center; gap: 6px; padding: 5px 3px;
+    cursor: pointer; border-bottom: 1px solid #0af1; font-size: 0.65rem;
+  }
+  .ship-row:last-child { border-bottom: none; }
+  .ship-row:hover { background: #00ffe712; }
+  .ship-row.sel { background: #00ffe720; }
+  .sdot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .sinfo { flex: 1; }
+  .sname { color: var(--accent); font-size: 0.62rem; }
+  .sstatus { font-size: 0.57rem; opacity: 0.55; margin-top: 1px; }
+  .instruct { font-size: 0.6rem; line-height: 1.9; opacity: 0.6; }
+  .instruct b { color: var(--accent); opacity: 1; font-weight: normal; }
+  .btn {
+    font-family: 'Share Tech Mono', monospace; font-size: 0.65rem;
+    letter-spacing: 1px; padding: 7px; border: 1px solid var(--accent);
+    background: transparent; color: var(--accent); cursor: pointer; width: 100%;
+    text-transform: uppercase;
+  }
+  .btn:hover { background: var(--accent); color: #000; }
+  .btn.red { border-color: var(--danger); color: var(--danger); }
+  .btn.red:hover { background: var(--danger); color: #fff; }
+  #overlay {
+    position: fixed; inset: 0; background: #02040af0;
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; z-index: 100; gap: 18px;
+  }
+  #overlay.hidden { display: none; }
+  .ov-title {
+    font-family: 'Orbitron', sans-serif; font-size: 2.2rem; font-weight: 900;
+    color: var(--accent); text-shadow: 0 0 20px #00ffe780; letter-spacing: 6px; text-align: center;
+  }
+  .ov-sub { font-size: 0.78rem; opacity: 0.6; letter-spacing: 2px; text-align: center; max-width: 420px; line-height: 2; }
+  .ov-score { font-family: 'Orbitron', sans-serif; font-size: 1.3rem; color: var(--warn); letter-spacing: 4px; }
+  .startbtn {
+    font-family: 'Orbitron', sans-serif; font-size: 0.85rem; letter-spacing: 3px;
+    padding: 12px 28px; border: 2px solid var(--accent); background: transparent;
+    color: var(--accent); cursor: pointer; text-transform: uppercase;
+  }
+  .startbtn:hover { background: var(--accent); color: #000; }
+  #toast {
+    position: fixed; top: 56px; left: 50%; transform: translateX(-50%);
+    background: var(--panel); border: 1px solid var(--accent); color: var(--accent);
+    padding: 5px 16px; font-size: 0.7rem; letter-spacing: 2px;
+    opacity: 0; transition: opacity 0.25s; pointer-events: none; z-index: 50;
+    white-space: nowrap;
+  }
+  #toast.w { border-color: var(--warn); color: var(--warn); }
+  #toast.d { border-color: var(--danger); color: var(--danger); }
+  .scanlines {
+    position: fixed; inset: 0; pointer-events: none; z-index: 200;
+    background: repeating-linear-gradient(0deg, transparent, transparent 3px, #00000014 3px, #00000014 4px);
+  }
+</style>
+</head>
+<body>
+<div class="scanlines"></div>
+
+<div id="hud">
+  <div class="title">MOTHERSHIP</div>
+  <div class="stat"><div class="stat-label">Score</div><div class="stat-value" id="elScore">0</div></div>
+  <div class="stat"><div class="stat-label">Docked</div><div class="stat-value" id="elDocked">0</div></div>
+  <div class="stat"><div class="stat-label">Active</div><div class="stat-value" id="elActive">0</div></div>
+  <div class="stat"><div class="stat-label">Wave</div><div class="stat-value" id="elWave">1</div></div>
+  <div class="stat"><div class="stat-label">Selected</div><div class="stat-value" id="elSel" style="font-size:0.7rem">—</div></div>
+</div>
+
+<div id="main">
+  <canvas id="gameCanvas"></canvas>
+  <div id="panel">
+    <div class="psec">
+      <div class="ptitle">Traffic Control</div>
+      <div id="shipList"><div style="font-size:0.6rem;opacity:0.35;padding:4px">Awaiting ships...</div></div>
+    </div>
+    <div class="psec">
+      <div class="instruct">
+        <b>1.</b> Click a ship to select<br>
+        <b>2.</b> Click anywhere to steer it<br>
+        <b>3.</b> Guide it to MOTHERSHIP<br>
+        <br>
+        Ships auto-dock when<br>
+        they enter the ring.<br>
+        <br>
+        🟡 filling arc = close<br>
+        🟢 DOCKING = landing!<br>
+        <br>
+        ⚠ Avoid the planet<br>
+        ⚠ Ships must not collide
+      </div>
+    </div>
+    <button class="btn" id="btnPause">PAUSE</button>
+    <button class="btn red" id="btnRestart">RESTART</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<div id="overlay">
+  <div class="ov-title" id="ovTitle">MOTHERSHIP</div>
+  <div class="ov-sub" id="ovSub">
+    SPACE TRAFFIC CONTROL<br><br>
+    Click a ship to select it<br>
+    Then click anywhere in space to set its flight waypoint<br>
+    Guide all ships safely into the docking ring<br><br>
+    Don't let any two ships collide
+  </div>
+  <div class="ov-score" id="ovScore" style="display:none"></div>
+  <button class="startbtn" id="btnStart">LAUNCH MISSION</button>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx    = canvas.getContext('2d');
+let W = 800, H = 600;
+
+// ── Physics tunables ──────────────────────────────────────────────
+const PLANET_GRAVITY = 1200;   // gravitational constant for planet
+const MOTHER_GRAVITY = 300;    // gentle pull toward mothership
+const SHIP_THRUST    = 30;     // pixels/sec² toward waypoint
+const MAX_SPEED      = 80;     // hard speed cap (pixels/sec)
+const SPAWN_SPEED    = 20;     // initial ship speed
+const DRAG           = 0.97;   // applied each second (space is almost frictionless)
+const FUEL_RATE      = 5;      // fuel % burned per second of thrusting
+const DOCK_DIST      = 55;     // distance to mothership center to dock
+const DOCK_MAX_SPEED = 999;    // no speed limit — just get close!
+const SHIP_R         = 10;     // ship collision radius
+const PLANET_R       = 52;
+const MOTHER_R       = 38;
+const COLL_DIST      = SHIP_R * 2 + 4;  // ship-ship collision threshold
+const WARN_DIST      = 85;              // proximity warning distance
+const WP_ARRIVE      = 22;             // how close before waypoint consumed
+// ─────────────────────────────────────────────────────────────────
+
+const COLORS = ['#00ffe7','#ff6b6b','#ffd93d','#6bcb77','#4d96ff','#ff922b','#cc5de8','#74c0fc'];
+let shipIdCounter = 0;
+
+// ── Ship class ────────────────────────────────────────────────────
+class Ship {
+  constructor(x, y, vx, vy) {
+    this.id    = String.fromCharCode(65 + (shipIdCounter % 26)) + (shipIdCounter >= 26 ? Math.floor(shipIdCounter/26) : '');
+    this.color = COLORS[shipIdCounter % COLORS.length];
+    shipIdCounter++;
+    this.x = x; this.y = y;
+    this.vx = vx; this.vy = vy;
+    this.fuel      = 100;
+    this.wp        = null;
+    this.angle     = Math.atan2(vy, vx);
+    this.trail     = [];
+    this.selected  = false;
+    this.landed    = false;
+    this.destroyed = false;
+    this.warnTimer = 0;
+    this.thrusting = false;
+    this.docking   = false;   // playing docking animation
+    this.dockTimer = 0;       // 0→1
+    this.dockMx    = 0;
+    this.dockMy    = 0;
+    this.dockScale = 1;
+  }
+
+  startDocking(mx, my) {
+    this.docking  = true;
+    this.dockTimer = 0;
+    this.dockMx   = mx;
+    this.dockMy   = my;
+    this.wp       = null;
+    this.selected = false;
+    this.vx = 0; this.vy = 0;
+  }
+
+  setWaypoint(x, y) {
+    this.wp = { x, y };
+  }
+
+  speed() {
+    return Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+  }
+
+  update(dt, planet, mother) {
+    if (this.landed || this.destroyed) return;
+
+    // ── Docking animation: spiral into mothership ──
+    if (this.docking) {
+      this.dockTimer += dt * 1.4;   // ~0.7s animation
+      this.dockScale  = 1 - this.dockTimer;
+      // Lerp position toward mothership center
+      const t = Math.min(this.dockTimer, 1);
+      this.x = this.x + (mother.x - this.x) * dt * 6;
+      this.y = this.y + (mother.y - this.y) * dt * 6;
+      this.angle += dt * 8;
+      if (this.dockTimer >= 1) {
+        this.landed  = true;
+        this.docking = false;
+        this.x = -9999; this.y = -9999; // move off screen so they're gone
+      }
+      return;
+    }
+
+    this.warnTimer = Math.max(0, this.warnTimer - dt);
+    this.thrusting = false;
+
+    // ── Gravity from planet ──
+    {
+      const dx = planet.x - this.x;
+      const dy = planet.y - this.y;
+      const d  = Math.sqrt(dx*dx + dy*dy) || 1;
+      const f  = PLANET_GRAVITY / (d * d);
+      this.vx += (dx/d) * f * dt;
+      this.vy += (dy/d) * f * dt;
+    }
+
+    // ── Gentle gravity from mothership ──
+    {
+      const dx = mother.x - this.x;
+      const dy = mother.y - this.y;
+      const d  = Math.sqrt(dx*dx + dy*dy) || 1;
+      const f  = MOTHER_GRAVITY / (d * d);
+      this.vx += (dx/d) * f * dt;
+      this.vy += (dy/d) * f * dt;
+    }
+
+    // ── Thrust toward waypoint ──
+    if (this.wp !== null && this.fuel > 0) {
+      const dx = this.wp.x - this.x;
+      const dy = this.wp.y - this.y;
+      const d  = Math.sqrt(dx*dx + dy*dy);
+
+      if (d < WP_ARRIVE) {
+        // Reached waypoint — clear it
+        this.wp = null;
+      } else {
+        const nx = dx / d;
+        const ny = dy / d;
+        this.vx += nx * SHIP_THRUST * dt;
+        this.vy += ny * SHIP_THRUST * dt;
+        this.fuel -= FUEL_RATE * dt;
+        this.fuel  = Math.max(0, this.fuel);
+        this.thrusting = true;
+      }
+    }
+
+    // ── Drag ──
+    const d = Math.pow(DRAG, dt);
+    this.vx *= d;
+    this.vy *= d;
+
+    // ── Speed cap ──
+    const spd = this.speed();
+    if (spd > MAX_SPEED) {
+      this.vx = (this.vx / spd) * MAX_SPEED;
+      this.vy = (this.vy / spd) * MAX_SPEED;
+    }
+
+    // ── Integrate position ──
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+
+    // Face direction of travel
+    if (spd > 1) this.angle = Math.atan2(this.vy, this.vx);
+
+    // ── Trail ──
+    this.trail.push({ x: this.x, y: this.y, a: 1.0 });
+    if (this.trail.length > 55) this.trail.shift();
+    for (const t of this.trail) t.a -= dt * 1.4;
+  }
+
+  draw(ctx, time, motherX, motherY) {
+    if (this.destroyed) return;
+
+    // ── Proximity-to-dock indicator ──
+    if (!this.docking && !this.landed) {
+      const ddx = this.x - motherX, ddy = this.y - motherY;
+      const ddist = Math.sqrt(ddx*ddx + ddy*ddy);
+      const prox = Math.max(0, 1 - (ddist - DOCK_DIST) / 110);
+      if (prox > 0.05) {
+        const isClose = prox > 0.85;
+        const ringColor = isClose ? '#00ff88' : '#ffb800';
+        ctx.strokeStyle = ringColor;
+        ctx.lineWidth   = 2.5;
+        ctx.globalAlpha = 0.75;
+        ctx.shadowColor = ringColor;
+        ctx.shadowBlur  = 8;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, SHIP_R + 17, -Math.PI/2, -Math.PI/2 + prox * Math.PI * 2);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.globalAlpha = 1;
+        if (isClose) {
+          ctx.fillStyle = '#00ff88';
+          ctx.font      = 'bold 9px Share Tech Mono';
+          ctx.textAlign = 'center';
+          ctx.fillText('▼ DOCKING', this.x, this.y - SHIP_R - 22);
+        }
+      }
+    }
+
+    // Trail
+    for (let i = 1; i < this.trail.length; i++) {
+      const a = Math.max(0, this.trail[i].a) * 0.45;
+      if (a < 0.01) continue;
+      ctx.globalAlpha = a;
+      ctx.strokeStyle = this.color;
+      ctx.lineWidth   = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(this.trail[i-1].x, this.trail[i-1].y);
+      ctx.lineTo(this.trail[i].x,   this.trail[i].y);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+
+    // Waypoint line + marker (always show if wp set)
+    if (this.wp) {
+      // Dashed line from ship to waypoint
+      ctx.setLineDash([5, 5]);
+      ctx.strokeStyle = this.color + '99';
+      ctx.lineWidth   = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(this.x, this.y);
+      ctx.lineTo(this.wp.x, this.wp.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Crosshair marker
+      const mx = this.wp.x, my = this.wp.y;
+      ctx.strokeStyle = this.color;
+      ctx.lineWidth   = 1.5;
+      ctx.globalAlpha = 0.85;
+      ctx.beginPath(); ctx.arc(mx, my, 8, 0, Math.PI*2); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(mx-13, my); ctx.lineTo(mx+13, my);
+      ctx.moveTo(mx, my-13); ctx.lineTo(mx, my+13);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
+    // Warning flash
+    if (this.warnTimer > 0) {
+      const pulse = 0.4 + 0.6 * Math.abs(Math.sin(time * 14));
+      ctx.globalAlpha = pulse * 0.55;
+      ctx.fillStyle   = '#ff2d55';
+      ctx.beginPath(); ctx.arc(this.x, this.y, SHIP_R + 12, 0, Math.PI*2); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    // Selection ring — solid bright, hard to miss
+    if (this.selected) {
+      // Outer glow fill
+      ctx.globalAlpha = 0.25;
+      ctx.fillStyle   = this.color;
+      ctx.beginPath(); ctx.arc(this.x, this.y, SHIP_R + 22, 0, Math.PI*2); ctx.fill();
+      ctx.globalAlpha = 1;
+      // Solid ring
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth   = 2.5;
+      ctx.shadowColor = '#ffffff';
+      ctx.shadowBlur  = 10;
+      ctx.beginPath(); ctx.arc(this.x, this.y, SHIP_R + 14, 0, Math.PI*2); ctx.stroke();
+      ctx.shadowBlur  = 0;
+      // Corner ticks
+      for (let i = 0; i < 4; i++) {
+        const a = (i / 4) * Math.PI * 2 + Math.PI/4;
+        ctx.strokeStyle = this.color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, SHIP_R + 14, a, a + 0.5);
+        ctx.stroke();
+      }
+    }
+
+    // Ship body
+    const scale = this.docking ? Math.max(0, 1 - this.dockTimer) : 1;
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.angle);
+    ctx.scale(scale, scale);
+
+    ctx.shadowColor = this.color;
+    ctx.shadowBlur  = this.selected ? 20 : 8;
+
+    // Hull
+    ctx.fillStyle = this.color;
+    ctx.beginPath();
+    ctx.moveTo( SHIP_R,      0);
+    ctx.lineTo(-SHIP_R*0.65, -SHIP_R*0.6);
+    ctx.lineTo(-SHIP_R*0.2,   0);
+    ctx.lineTo(-SHIP_R*0.65,  SHIP_R*0.6);
+    ctx.closePath();
+    ctx.fill();
+
+    // Engine flame
+    if (this.thrusting) {
+      const fl = 5 + Math.random() * 8;
+      const g  = ctx.createLinearGradient(-SHIP_R*0.2, 0, -SHIP_R*0.2 - fl, 0);
+      g.addColorStop(0,   '#ffffff');
+      g.addColorStop(0.5, '#ffb800');
+      g.addColorStop(1,   'transparent');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.moveTo(-SHIP_R*0.2,  SHIP_R*0.32);
+      ctx.lineTo(-SHIP_R*0.2 - fl, (Math.random()-0.5)*4);
+      ctx.lineTo(-SHIP_R*0.2, -SHIP_R*0.32);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    ctx.shadowBlur = 0;
+    ctx.restore();
+
+    // Label above ship
+    ctx.fillStyle   = this.color;
+    ctx.font        = '9px Share Tech Mono';
+    ctx.textAlign   = 'center';
+    ctx.fillText(this.id, this.x, this.y - SHIP_R - 5);
+
+    // Fuel bar below ship
+    const bw = 26, bx = this.x - bw/2, by = this.y + SHIP_R + 5;
+    ctx.fillStyle = '#ffffff14';
+    ctx.fillRect(bx, by, bw, 2);
+    ctx.fillStyle = this.fuel > 40 ? '#00ffe7' : this.fuel > 18 ? '#ffb800' : '#ff2d55';
+    ctx.fillRect(bx, by, bw * (this.fuel / 100), 2);
+  }
+}
+
+// ── Explosion ─────────────────────────────────────────────────────
+class Explosion {
+  constructor(x, y) {
+    this.life = 2.2;
+    this.pts  = Array.from({length: 70}, () => {
+      const a = Math.random() * Math.PI * 2;
+      const s = 15 + Math.random() * 130;
+      return {
+        x, y,
+        vx: Math.cos(a) * s, vy: Math.sin(a) * s,
+        life: 0.5 + Math.random() * 1.4,
+        max:  0.5 + Math.random() * 1.4,
+        r: 1.5 + Math.random() * 4,
+        c: ['#ff2d55','#ff6b2d','#ffb800','#ffffaa'][Math.floor(Math.random()*4)]
+      };
+    });
+  }
+  update(dt) {
+    this.life -= dt;
+    for (const p of this.pts) {
+      p.x  += p.vx * dt; p.y  += p.vy * dt;
+      p.vx *= 0.93;      p.vy *= 0.93;
+      p.life -= dt;
+    }
+  }
+  draw(ctx) {
+    for (const p of this.pts) {
+      if (p.life <= 0) continue;
+      ctx.globalAlpha = Math.max(0, p.life / p.max) * 0.9;
+      ctx.fillStyle   = p.c;
+      ctx.shadowColor = p.c; ctx.shadowBlur = 5;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+  }
+  get done() { return this.life <= 0; }
+}
+
+// ── Game ──────────────────────────────────────────────────────────
+class Game {
+  constructor() {
+    this.ships      = [];
+    this.explosions = [];
+    this.particles  = [];
+    this.stars      = [];
+    this.selected   = null;
+    this.score      = 0;
+    this.docked     = 0;
+    this.wave       = 1;
+    this.paused     = false;
+    this.over       = false;
+    this.time       = 0;
+    this.spawnTimer = 0;
+    this.spawnEvery = 8;
+    this.spawnCap   = 4;    // max simultaneous ships (grows over time)
+    this._last      = null;
+    this.hoverX     = -999;
+    this.hoverY     = -999;
+    this.dockFlash  = 0;
+    this.dockFlashColor = '#00ffe7';
+
+    this.setupWorld();
+    this.buildStars();
+    this.bindEvents();
+    this.spawnWave(2);
+    this.raf = requestAnimationFrame(t => this.tick(t));
+  }
+
+  setupWorld() {
+    this.planet = { x: W/2, y: H * 0.70, r: PLANET_R };
+    // Mothership orbits slowly around center
+    this.motherOrbitAngle = 0;
+    this.motherOrbitR     = Math.min(W, H) * 0.18;
+    this.motherSpin       = 0;
+    this.mother = { x: W/2, y: H * 0.30, r: MOTHER_R };
+    this._updateMother(0);
+  }
+
+  _updateMother(dt) {
+    this.motherOrbitAngle += 0.06 * dt;   // very slow orbit
+    this.motherSpin       += 0.22 * dt;
+    this.mother.x = W/2 + Math.cos(this.motherOrbitAngle) * this.motherOrbitR;
+    this.mother.y = H/2 - H*0.1 + Math.sin(this.motherOrbitAngle) * this.motherOrbitR * 0.5;
+  }
+
+  buildStars() {
+    this.stars = Array.from({length: 180}, () => ({
+      x: Math.random() * W, y: Math.random() * H,
+      r: Math.random() * 1.4 + 0.3,
+      tw: Math.random() * Math.PI * 2
+    }));
+  }
+
+  spawnWave(count) {
+    for (let i = 0; i < count; i++) {
+      setTimeout(() => { if (!this.over) this.spawnOne(); }, i * 2000);
+    }
+  }
+
+  spawnOne() {
+    const side = Math.floor(Math.random() * 4);
+    const pad  = 25;
+    let x, y;
+    if      (side === 0) { x = pad + Math.random()*(W-2*pad); y = pad; }
+    else if (side === 1) { x = W-pad; y = pad + Math.random()*(H-2*pad); }
+    else if (side === 2) { x = pad + Math.random()*(W-2*pad); y = H-pad; }
+    else                 { x = pad; y = pad + Math.random()*(H-2*pad); }
+
+    // Initial velocity pointing roughly toward center
+    const dx = W/2 - x, dy = H/2 - y;
+    const d  = Math.sqrt(dx*dx + dy*dy);
+    const vx = (dx/d) * SPAWN_SPEED + (Math.random()-0.5) * 8;
+    const vy = (dy/d) * SPAWN_SPEED + (Math.random()-0.5) * 8;
+
+    const s = new Ship(x, y, vx, vy);
+    this.ships.push(s);
+    toast(`SHIP ${s.id} ENTERING SECTOR`);
+  }
+
+  stop() {
+    if (this.raf) cancelAnimationFrame(this.raf);
+    this.raf = null;
+  }
+
+  tick(now) {
+    if (!this._last) this._last = now;
+    const dt = Math.min((now - this._last) / 1000, 0.05);
+    this._last = now;
+    if (!this.paused && !this.over) this.update(dt);
+    this.draw();
+    this.raf = requestAnimationFrame(t => this.tick(t));
+  }
+
+  update(dt) {
+    this.time   += dt;
+    this.spawnTimer += dt;
+    this._updateMother(dt);
+
+    // Ships (includes docking ones for animation)
+    for (const s of this.ships) s.update(dt, this.planet, this.mother);
+
+    // Landing particles
+    this.particles = this.particles.filter(p => p.life > 0);
+    for (const p of this.particles) {
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      p.vx *= 0.92;      p.vy *= 0.92;
+      p.life -= dt;
+    }
+
+    // Explosions
+    this.explosions = this.explosions.filter(e => !e.done);
+    for (const e of this.explosions) e.update(dt);
+
+    this.checkCollisions();
+    this.checkDocking();
+    this.checkOOB();
+    this.dockFlash = Math.max(0, this.dockFlash - dt * 2);
+
+    // Escalate difficulty over time
+    this.spawnEvery = Math.max(3, 8 - this.time * 0.03);
+    this.spawnCap   = Math.min(8, 3 + Math.floor(this.time / 20));
+
+    // Auto-spawn to keep ships on screen
+    if (this.spawnTimer > this.spawnEvery) {
+      this.spawnTimer = 0;
+      const alive = this.ships.filter(s => !s.landed && !s.destroyed).length;
+      if (alive < this.spawnCap) this.spawnOne();
+    }
+    // Always ensure at least 1 ship present
+    const aliveNow = this.ships.filter(s => !s.landed && !s.destroyed).length;
+    if (aliveNow === 0) { this.spawnTimer = this.spawnEvery; }
+
+    this.updateHUD();
+    this.updatePanel();
+  }
+
+  checkCollisions() {
+    const alive = this.ships.filter(s => !s.landed && !s.destroyed && !s.docking);
+
+    // Ship vs ship
+    for (let i = 0; i < alive.length; i++) {
+      for (let j = i+1; j < alive.length; j++) {
+        const a = alive[i], b = alive[j];
+        const dx = a.x - b.x, dy = a.y - b.y;
+        const d  = Math.sqrt(dx*dx + dy*dy);
+        if (d < WARN_DIST) { a.warnTimer = 0.6; b.warnTimer = 0.6; }
+        if (d < COLL_DIST) { this.shipCollide(a, b); return; }
+      }
+
+      // Ship vs planet surface
+      const s  = alive[i];
+      const dx = s.x - this.planet.x, dy = s.y - this.planet.y;
+      if (Math.sqrt(dx*dx + dy*dy) < PLANET_R + SHIP_R - 2) {
+        this.crashPlanet(s); return;
+      }
+    }
+  }
+
+  shipCollide(a, b) {
+    this.explosions.push(new Explosion((a.x+b.x)/2, (a.y+b.y)/2));
+    a.destroyed = true; b.destroyed = true;
+    if (this.selected === a || this.selected === b) this.selected = null;
+    this.gameOver();
+  }
+
+  crashPlanet(s) {
+    this.explosions.push(new Explosion(s.x, s.y));
+    s.destroyed = true;
+    if (this.selected === s) this.selected = null;
+    this.gameOver();
+  }
+
+  checkDocking() {
+    for (const s of this.ships) {
+      if (s.landed || s.destroyed || s.docking) continue;
+      const dx = s.x - this.mother.x, dy = s.y - this.mother.y;
+      const d  = Math.sqrt(dx*dx + dy*dy);
+      if (d < DOCK_DIST && s.speed() < DOCK_MAX_SPEED) {
+        // Start animated docking
+        s.startDocking(this.mother.x, this.mother.y);
+        if (this.selected === s) this.selected = null;
+        this.docked++;
+        const pts = Math.round(100 + s.fuel * 1.5);
+        this.score += pts;
+        toast(`✓ SHIP ${s.id} DOCKED  +${pts}pts`);
+        // Big celebration ring burst
+        for (let i = 0; i < 40; i++) {
+          const a = (i / 40) * Math.PI * 2;
+          const spd = 40 + Math.random() * 70;
+          this.particles.push({
+            x: s.x, y: s.y,
+            vx: Math.cos(a) * spd, vy: Math.sin(a) * spd,
+            life: 1.2, maxLife: 1.2, c: s.color, r: 2 + Math.random()*2
+          });
+        }
+        // Flash ring on mothership
+        this.dockFlash = 0.6;
+        this.dockFlashColor = s.color;
+        this.checkWaveDone();
+      }
+    }
+  }
+
+  checkOOB() {
+    for (const s of this.ships) {
+      if (s.landed || s.destroyed) continue;
+      if (s.x < -300 || s.x > W+300 || s.y < -300 || s.y > H+300) {
+        s.destroyed = true;
+        if (this.selected === s) this.selected = null;
+        toast(`SHIP ${s.id} LOST IN DEEP SPACE`, 'w');
+      }
+    }
+  }
+
+  checkWaveDone() {
+    const alive = this.ships.filter(s => !s.landed && !s.destroyed).length;
+    if (alive === 0) {
+      this.wave++;
+      this.spawnTimer = 0;
+      setTimeout(() => {
+        if (!this.over) {
+          toast(`── WAVE ${this.wave} INCOMING ──`, 'w');
+          this.spawnWave(2 + Math.min(this.wave, 4));
+        }
+      }, 2500);
+    }
+  }
+
+  gameOver() {
+    this.over = true;
+    setTimeout(() => {
+      document.getElementById('ovTitle').textContent = 'COLLISION';
+      document.getElementById('ovSub').textContent   = 'Two ships have collided.\nAll hands lost.';
+      const el = document.getElementById('ovScore');
+      el.style.display = 'block';
+      el.textContent   = `SCORE: ${this.score}`;
+      document.getElementById('btnStart').textContent = 'TRY AGAIN';
+      document.getElementById('overlay').classList.remove('hidden');
+    }, 2400);
+  }
+
+  // ── Input ──────────────────────────────────────────────────────
+  bindEvents() {
+    canvas.addEventListener('mousedown', e => {
+      const r  = canvas.getBoundingClientRect();
+      this.handleClick(e.clientX - r.left, e.clientY - r.top);
+    });
+    canvas.addEventListener('touchstart', e => {
+      e.preventDefault();
+      const r = canvas.getBoundingClientRect();
+      const t = e.touches[0];
+      this.handleClick(t.clientX - r.left, t.clientY - r.top);
+    }, { passive: false });
+
+    // Also track mouse position for hover highlight
+    canvas.addEventListener('mousemove', e => {
+      const r = canvas.getBoundingClientRect();
+      this.hoverX = e.clientX - r.left;
+      this.hoverY = e.clientY - r.top;
+    });
+
+    document.getElementById('btnPause').onclick = () => {
+      this.paused = !this.paused;
+      document.getElementById('btnPause').textContent = this.paused ? 'RESUME' : 'PAUSE';
+    };
+    document.getElementById('btnRestart').onclick = () => startGame();
+  }
+
+  handleClick(mx, my) {
+    if (this.over || this.paused) return;
+
+    // Find the nearest ship within a generous hit radius
+    const HIT_R = 38;   // large click target — easy to hit
+    let hit = null;
+    let bestDist = HIT_R;
+    for (const s of this.ships) {
+      if (s.landed || s.destroyed) continue;
+      const dx = s.x - mx, dy = s.y - my;
+      const d  = Math.sqrt(dx*dx + dy*dy);
+      if (d < bestDist) { bestDist = d; hit = s; }
+    }
+
+    if (hit) {
+      // Select this ship
+      if (this.selected && this.selected !== hit) this.selected.selected = false;
+      this.selected          = hit;
+      this.selected.selected = true;
+      toast(`SHP-${hit.id} SELECTED — now click anywhere to steer`);
+    } else if (this.selected) {
+      // Set waypoint for the currently selected ship
+      this.selected.setWaypoint(mx, my);
+    } else {
+      toast('CLICK ON A SHIP TO SELECT IT', 'w');
+    }
+  }
+
+  // ── HUD ────────────────────────────────────────────────────────
+  updateHUD() {
+    document.getElementById('elScore').textContent  = this.score;
+    document.getElementById('elDocked').textContent = this.docked;
+    document.getElementById('elActive').textContent = this.ships.filter(s=>!s.landed&&!s.destroyed).length;
+    document.getElementById('elWave').textContent   = this.wave;
+    const s = this.selected;
+    document.getElementById('elSel').textContent = s
+      ? `${s.id}  ${Math.round(s.fuel)}%F  ${Math.round(s.speed())}px/s`
+      : '—';
+  }
+
+  updatePanel() {
+    const active = this.ships.filter(s => !s.landed && !s.destroyed);
+    document.getElementById('shipList').innerHTML = active.length
+      ? active.map(s => `
+          <div class="ship-row${this.selected===s?' sel':''}" onclick="window._G.panelSelect('${s.id}')">
+            <div class="sdot" style="background:${s.color}"></div>
+            <div class="sinfo">
+              <div class="sname">SHP-${s.id}</div>
+              <div class="sstatus">${Math.round(s.fuel)}%F · ${s.wp ? '▶ routed' : 'no route'}</div>
+            </div>
+          </div>`).join('')
+      : '<div style="font-size:0.58rem;opacity:0.3;padding:4px">No ships in sector</div>';
+  }
+
+  panelSelect(id) {
+    if (this.selected) this.selected.selected = false;
+    const s = this.ships.find(s => s.id === id && !s.landed && !s.destroyed);
+    this.selected = s || null;
+    if (this.selected) this.selected.selected = true;
+  }
+
+  // ── Draw ───────────────────────────────────────────────────────
+  draw() {
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#02040a';
+    ctx.fillRect(0, 0, W, H);
+
+    // Stars
+    for (const s of this.stars) {
+      s.tw += 0.016;
+      ctx.globalAlpha = 0.22 + 0.38 * Math.sin(s.tw);
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    this.drawPlanet();
+    this.drawMothership();
+
+    // Hover highlight — big soft glow around nearest ship to cursor
+    if (!this.over) {
+      let nearest = null, nearDist = 60;
+      for (const s of this.ships) {
+        if (s.landed || s.destroyed) continue;
+        const dx = s.x - this.hoverX, dy = s.y - this.hoverY;
+        const d  = Math.sqrt(dx*dx + dy*dy);
+        if (d < nearDist) { nearDist = d; nearest = s; }
+      }
+      if (nearest && !nearest.selected) {
+        ctx.globalAlpha = 0.35;
+        ctx.fillStyle   = nearest.color;
+        ctx.shadowColor = nearest.color;
+        ctx.shadowBlur  = 20;
+        ctx.beginPath(); ctx.arc(nearest.x, nearest.y, SHIP_R + 18, 0, Math.PI*2); ctx.fill();
+        ctx.shadowBlur  = 0;
+        ctx.globalAlpha = 1;
+        // "click me" label
+        ctx.fillStyle = nearest.color;
+        ctx.font      = '9px Share Tech Mono';
+        ctx.textAlign = 'center';
+        ctx.fillText('▼ click', nearest.x, nearest.y - SHIP_R - 18);
+      }
+    }
+
+    // Ships
+    for (const s of this.ships) s.draw(ctx, this.time, this.mother.x, this.mother.y);
+
+    // Landing particles
+    for (const p of this.particles) {
+      ctx.globalAlpha = Math.max(0, p.life / (p.maxLife || 0.9));
+      ctx.fillStyle   = p.c;
+      ctx.shadowColor = p.c; ctx.shadowBlur = 4;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r || 3, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+
+    // Explosions
+    for (const e of this.explosions) e.draw(ctx);
+
+    // Pause banner
+    if (this.paused) {
+      ctx.fillStyle = '#000000aa'; ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = '#00ffe7'; ctx.font = 'bold 1.8rem Orbitron';
+      ctx.textAlign = 'center'; ctx.fillText('PAUSED', W/2, H/2);
+    }
+  }
+
+  drawPlanet() {
+    const { x, y, r } = this.planet;
+
+    // Atmosphere glow
+    const atmo = ctx.createRadialGradient(x, y, r*0.7, x, y, r*1.65);
+    atmo.addColorStop(0, 'rgba(50,110,255,0.07)');
+    atmo.addColorStop(1, 'transparent');
+    ctx.fillStyle = atmo;
+    ctx.beginPath(); ctx.arc(x, y, r*1.65, 0, Math.PI*2); ctx.fill();
+
+    // Body
+    const g = ctx.createRadialGradient(x - r*0.35, y - r*0.35, r*0.05, x, y, r);
+    g.addColorStop(0, '#2c5da0'); g.addColorStop(0.55, '#12285a'); g.addColorStop(1, '#060f1c');
+    ctx.fillStyle = g; ctx.shadowColor = '#1a3eaa'; ctx.shadowBlur = 24;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // Warning text
+    ctx.fillStyle = 'rgba(80,140,255,0.5)';
+    ctx.font = '10px Share Tech Mono'; ctx.textAlign = 'center';
+    ctx.fillText('⚠ GRAVITY WELL', x, y + r + 18);
+  }
+
+  drawMothership() {
+    const { x, y } = this.mother;
+    const spin      = this.motherSpin;
+
+    // Dock zone ring
+    const off = (this.time * 25) % 20;
+    ctx.save(); ctx.setLineDash([6, 4]); ctx.lineDashOffset = -off;
+    ctx.strokeStyle = 'rgba(0,255,231,0.35)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(x, y, DOCK_DIST, 0, Math.PI*2); ctx.stroke();
+    ctx.setLineDash([]); ctx.restore();
+    ctx.fillStyle = 'rgba(0,255,231,0.3)'; ctx.font = '9px Share Tech Mono'; ctx.textAlign = 'center';
+    ctx.fillText('DOCK ZONE', x, y + DOCK_DIST + 13);
+
+    // Dock flash ring when a ship lands
+    if (this.dockFlash > 0) {
+      const fr = DOCK_DIST + (1 - this.dockFlash) * 40;
+      ctx.globalAlpha = this.dockFlash * 0.9;
+      ctx.strokeStyle = this.dockFlashColor;
+      ctx.lineWidth   = 3;
+      ctx.shadowColor = this.dockFlashColor;
+      ctx.shadowBlur  = 20;
+      ctx.beginPath(); ctx.arc(x, y, fr, 0, Math.PI*2); ctx.stroke();
+      ctx.shadowBlur  = 0;
+      ctx.globalAlpha = 1;
+    }
+
+    ctx.save(); ctx.translate(x, y); ctx.rotate(spin);
+
+    // Halo
+    const halo = ctx.createRadialGradient(0, 0, 4, 0, 0, MOTHER_R + 16);
+    halo.addColorStop(0, 'rgba(0,255,231,0.18)'); halo.addColorStop(1, 'transparent');
+    ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(0, 0, MOTHER_R+16, 0, Math.PI*2); ctx.fill();
+
+    // Ring
+    ctx.shadowColor = '#00ffe7'; ctx.shadowBlur = 15;
+    ctx.strokeStyle = '#00ffe7'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(0, 0, MOTHER_R, 0, Math.PI*2); ctx.stroke();
+
+    // Spokes
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 6; i++) {
+      const a = (i/6) * Math.PI*2;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a)*MOTHER_R*0.38, Math.sin(a)*MOTHER_R*0.38);
+      ctx.lineTo(Math.cos(a)*MOTHER_R,      Math.sin(a)*MOTHER_R);
+      ctx.stroke();
+    }
+
+    // Hub
+    const hub = ctx.createRadialGradient(0, 0, 2, 0, 0, MOTHER_R*0.38);
+    hub.addColorStop(0, '#00ffe7cc'); hub.addColorStop(1, '#003d30');
+    ctx.fillStyle = hub; ctx.beginPath(); ctx.arc(0, 0, MOTHER_R*0.38, 0, Math.PI*2); ctx.fill();
+
+    // Blinking docking lights
+    for (let i = 0; i < 4; i++) {
+      const a = (i/4) * Math.PI*2;
+      ctx.fillStyle = Math.sin(this.time*4 + i*1.2) > 0 ? '#00ffe7' : '#002211';
+      ctx.beginPath();
+      ctx.arc(Math.cos(a)*MOTHER_R*0.72, Math.sin(a)*MOTHER_R*0.72, 4, 0, Math.PI*2);
+      ctx.fill();
+    }
+
+    ctx.shadowBlur = 0;
+    ctx.restore();
+
+    // Label
+    ctx.fillStyle = '#00ffe7'; ctx.font = 'bold 9px Orbitron'; ctx.textAlign = 'center';
+    ctx.fillText('MOTHERSHIP', x, y - MOTHER_R - 10);
+  }
+}
+
+// ── Toast helper ──────────────────────────────────────────────────
+let _toastTimer;
+function toast(msg, cls = '') {
+  const el    = document.getElementById('toast');
+  el.textContent = msg;
+  el.className   = cls;
+  el.style.opacity = '1';
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => { el.style.opacity = '0'; }, 3000);
+}
+
+// ── Bootstrap ─────────────────────────────────────────────────────
+window._G = { panelSelect: () => {} };
+
+function resize() {
+  const main = document.getElementById('main');
+  W = canvas.width  = main.clientWidth;
+  H = canvas.height = main.clientHeight;
+  if (window._G && window._G.setupWorld) window._G.setupWorld();
+}
+window.addEventListener('resize', resize);
+
+function startGame() {
+  if (window._G && window._G.stop) window._G.stop();
+  shipIdCounter = 0;
+  document.getElementById('overlay').classList.add('hidden');
+  document.getElementById('btnPause').textContent = 'PAUSE';
+  document.getElementById('ovScore').style.display = 'none';
+  document.getElementById('btnStart').textContent  = 'LAUNCH MISSION';
+  document.getElementById('ovTitle').textContent   = 'MOTHERSHIP';
+  document.getElementById('ovSub').innerHTML =
+    'SPACE TRAFFIC CONTROL<br><br>Click a ship to select it<br>Then click anywhere to set its waypoint<br>Guide all ships into the docking ring<br><br>Don\'t let any two ships collide';
+  resize();
+  const g = new Game();
+  window._G = g;
+}
+
+document.getElementById('btnStart').onclick = startGame;
+resize();
+</script>
+</body>
+</html>
