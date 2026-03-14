@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>✏️ Write Together</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@600;700;800;900&display=swap');
+
+:root {
+  --ink:    #1a1f3a;
+  --paper:  #fdfaf3;
+  --pencil: #f4a030;
+  --orange: #e8621a;
+  --green:  #3daa6e;
+  --red:    #e04040;
+  --shadow: 0 2px 16px rgba(26,31,58,0.13);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  font-family: 'Nunito', sans-serif;
+  background: var(--paper);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ── HOME SCREEN ── */
+#homeScreen {
+  position: fixed; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  background: var(--paper);
+  background-image:
+    radial-gradient(circle at 18% 25%, #fdebd0 0%, transparent 42%),
+    radial-gradient(circle at 82% 72%, #d4e8ff 0%, transparent 42%);
+  touch-action: auto;
+  overflow: auto;
+  z-index: 50;
+  padding: 24px 16px;
+}
+#homeScreen.hidden { display: none !important; }
+
+.home-title {
+  font-family: 'Fredoka One', cursive;
+  font-size: clamp(1.8rem, 5vw, 3rem);
+  color: var(--ink);
+  margin-bottom: 4px;
+  text-align: center;
+}
+.home-sub {
+  font-size: clamp(.82rem, 2vw, 1rem);
+  color: #8a7e6a;
+  font-weight: 700;
+  margin-bottom: 28px;
+  text-align: center;
+}
+.mode-grid {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  justify-content: center;
+  width: 100%;
+  max-width: 500px;
+}
+.mode-card {
+  background: white;
+  border-radius: 20px;
+  padding: 22px 20px;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  transition: transform .18s, box-shadow .18s;
+  text-align: center;
+  flex: 1 1 140px;
+  max-width: 200px;
+  border: 3px solid transparent;
+  touch-action: auto;
+}
+.mode-card:hover  { transform: translateY(-4px); box-shadow: 0 10px 28px rgba(26,31,58,.16); }
+.mode-card:active { transform: scale(.97); }
+.mode-card.active-card { border-color: var(--pencil); }
+.mode-card.soon   { opacity: .4; cursor: default; pointer-events: none; }
+.card-icon  { font-size: 2.2rem; margin-bottom: 8px; }
+.card-title { font-family: 'Fredoka One', cursive; font-size: 1.1rem; color: var(--ink); margin-bottom: 4px; }
+.card-desc  { font-size: .75rem; font-weight: 700; color: #9a8f7a; line-height: 1.4; }
+.card-soon  { display: inline-block; margin-top: 7px; font-size: .68rem; font-weight: 800;
+              background: #f0ebe0; color: #a09080; border-radius: 6px; padding: 2px 7px; }
+
+/* ── ALPHABET PICKER SCREEN ── */
+#alphaScreen {
+  position: fixed; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center;
+  background: var(--paper);
+  touch-action: auto;
+  overflow-y: auto;
+  z-index: 50;
+  padding: 20px 16px 30px;
+}
+#alphaScreen.hidden { display: none !important; }
+.alpha-title {
+  font-family: 'Fredoka One', cursive;
+  font-size: clamp(1.5rem, 4vw, 2.2rem);
+  color: var(--ink); margin-bottom: 4px; text-align: center;
+}
+.alpha-sub {
+  font-size: .82rem; font-weight: 700; color: #8a7e6a;
+  margin-bottom: 18px; text-align: center;
+}
+.alpha-section-label {
+  font-family: 'Fredoka One', cursive;
+  font-size: .9rem; color: #b0a898;
+  width: 100%; max-width: 480px;
+  margin-bottom: 8px; padding-left: 2px;
+}
+.alpha-grid {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  justify-content: center;
+  width: 100%; max-width: 480px;
+  margin-bottom: 16px;
+}
+.alpha-btn {
+  width: 52px; height: 52px;
+  border: none; border-radius: 14px;
+  background: white;
+  box-shadow: var(--shadow);
+  font-family: 'Fredoka One', cursive;
+  font-size: 1.4rem; color: var(--ink);
+  cursor: pointer; touch-action: auto;
+  transition: transform .12s, box-shadow .12s;
+  display: flex; align-items: center; justify-content: center;
+}
+.alpha-btn:hover  { transform: translateY(-3px); box-shadow: 0 6px 18px rgba(26,31,58,.15); }
+.alpha-btn:active { transform: scale(.92); }
+.alpha-back {
+  margin-top: 4px;
+  font-size: .82rem; font-weight: 800; color: #9a9080;
+  background: none; border: none; cursor: pointer;
+  touch-action: auto; text-decoration: underline;
+}
+
+/* ═══════════════════════════════════
+   MAIN LAYOUT — full viewport
+   ═══════════════════════════════════ */
+#app {
+  position: fixed; inset: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Tiny floating toolbar pinned to top */
+#toolbar {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: rgba(253,250,243,0.92);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 20;
+  border-bottom: 1px solid rgba(200,190,170,0.4);
+  height: 40px;
+}
+#modeLabel {
+  font-family: 'Fredoka One', cursive;
+  font-size: 1rem;
+  color: var(--ink);
+  flex: 1;
+  white-space: nowrap;
+}
+.tbtn {
+  border: none;
+  border-radius: 9px;
+  padding: 6px 13px;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  font-size: .8rem;
+  cursor: pointer;
+  white-space: nowrap;
+  touch-action: auto;
+  transition: transform .1s;
+}
+.tbtn:active { transform: scale(.94); }
+.tbtn-ghost  { background: #ede8de; color: #6a6050; }
+.tbtn-green  { background: var(--green);  color: white; }
+
+/* Canvas wrap — everything below toolbar */
+#canvasWrap {
+  position: fixed;
+  inset: 0;
+  top: 40px;   /* height of toolbar */
+  overflow: hidden;
+}
+#canvasWrap canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+}
+#animCanvas  { z-index: 1; }
+#childCanvas { z-index: 2; background: transparent; cursor: crosshair; }
+#parentCanvas{ z-index: 1; cursor: crosshair; background: var(--paper); }
+
+/* stroke counter — parent mode */
+#strokeCounter {
+  position: absolute;
+  bottom: 12px; left: 50%; transform: translateX(-50%);
+  background: rgba(255,255,255,.88);
+  border-radius: 99px; padding: 4px 16px;
+  font-weight: 800; font-size: .82rem; color: var(--ink);
+  box-shadow: var(--shadow); pointer-events: none; z-index: 25;
+  backdrop-filter: blur(4px);
+}
+
+/* feedback toast */
+#feedbackToast {
+  position: absolute;
+  top: 52px; left: 50%; transform: translateX(-50%);
+  border-radius: 12px; padding: 8px 18px;
+  font-weight: 800; font-size: .85rem;
+  box-shadow: var(--shadow);
+  z-index: 26; pointer-events: none;
+  animation: toastIn .2s ease-out;
+  white-space: nowrap;
+}
+@keyframes toastIn { from{opacity:0;transform:translateX(-50%) translateY(-6px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
+#feedbackToast.good { background: #d4f5e2; color: #1a6e3a; }
+#feedbackToast.bad  { background: #fde8e8; color: #a02020; }
+
+@keyframes shake {
+  0%,100%{ transform:none; }
+  20%{ transform:translateX(-5px); }
+  40%{ transform:translateX(5px); }
+  60%{ transform:translateX(-3px); }
+  80%{ transform:translateX(3px); }
+}
+#canvasWrap.shake { animation: shake .3s ease-out; }
+
+/* ── CELEBRATION OVERLAY ── */
+#celebOverlay {
+  position: fixed; inset: 0;
+  background: rgba(26,31,58,.52);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100;
+}
+#celebOverlay.hidden { display: none; }
+.celeb-box {
+  background: white; border-radius: 26px; padding: 36px 44px; text-align: center;
+  box-shadow: 0 20px 60px rgba(26,31,58,.3);
+  animation: popIn .4s cubic-bezier(.34,1.56,.64,1) forwards;
+}
+@keyframes popIn { from{transform:scale(.5);opacity:0} to{transform:scale(1);opacity:1} }
+.celeb-emoji { font-size: 3.5rem; margin-bottom: 6px; }
+.celeb-title { font-family: 'Fredoka One', cursive; font-size: 2rem; color: var(--ink); margin-bottom: 4px; }
+.celeb-sub   { font-size: .95rem; color: #7a7060; font-weight: 700; margin-bottom: 20px; }
+</style>
+</head>
+<body>
+
+<!-- HOME SCREEN -->
+<div id="homeScreen">
+  <h1 class="home-title">✏️ Write Together</h1>
+  <p class="home-sub">Choose a mode to start learning</p>
+  <div class="mode-grid">
+    <div class="mode-card active-card" onclick="startHandDrawn()">
+      <div class="card-icon">✍️</div>
+      <div class="card-title">Hand Drawn</div>
+      <div class="card-desc">Parent draws letters or words, child traces each stroke</div>
+    </div>
+    <div class="mode-card active-card" onclick="startAlphabet()">
+      <div class="card-icon">🔤</div>
+      <div class="card-title">Alphabet</div>
+      <div class="card-desc">Pick a letter or digit, then trace its strokes</div>
+    </div>
+  </div>
+</div>
+
+<!-- ALPHABET PICKER -->
+<div id="alphaScreen" class="hidden">
+  <h2 class="alpha-title">✍️ Pick a character</h2>
+  <p class="alpha-sub">Tap any letter or digit to start tracing</p>
+  <div class="alpha-section-label">Letters</div>
+  <div class="alpha-grid" id="alphaLetters"></div>
+  <div class="alpha-section-label">Digits</div>
+  <div class="alpha-grid" id="alphaDigits"></div>
+  <button class="alpha-back" onclick="showHome()">← Back to menu</button>
+</div>
+
+<div id="app" style="display:none">
+
+  <!-- floating toolbar -->
+  <div id="toolbar">
+    <button class="tbtn tbtn-ghost" id="btnHome"   onclick="goHome()">← Home</button>
+    <span id="modeLabel">✏️ Parent: Draw</span>
+    <button class="tbtn tbtn-ghost" id="btnUndo"    onclick="undoStroke()">↩ Undo</button>
+    <button class="tbtn tbtn-ghost" id="btnClear"   onclick="clearParent()">🗑 Clear</button>
+    <button class="tbtn tbtn-green" id="btnApprove" onclick="approveDrawing()" style="display:none">✅ Approve</button>
+    <button class="tbtn tbtn-ghost" id="btnReplay"  onclick="replayStroke()"   style="display:none">🔁 Replay</button>
+    <button class="tbtn tbtn-ghost" id="btnRedraw"  onclick="backToParent()"   style="display:none">✏️ Redraw</button>
+  </div>
+
+  <!-- full-viewport canvas stack -->
+  <div id="canvasWrap">
+    <canvas id="parentCanvas"></canvas>
+    <canvas id="animCanvas"></canvas>
+    <canvas id="childCanvas"></canvas>
+
+    <!-- parent: stroke counter -->
+    <div id="strokeCounter" style="display:none">0 strokes</div>
+
+    <!-- feedback toast -->
+    <div id="feedbackToast" style="display:none"></div>
+  </div>
+
+</div>
+
+<!-- CELEBRATION -->
+<div id="celebOverlay" class="hidden">
+  <div class="celeb-box">
+    <div class="celeb-emoji">🎉🏆🎉</div>
+    <div class="celeb-title">Amazing!</div>
+    <div class="celeb-sub">You traced all the strokes!</div>
+    <button class="tbtn tbtn-green"  onclick="restartChild()" style="margin-right:8px">🔁 Again</button>
+    <button class="tbtn tbtn-ghost"  id="celebSecondBtn" onclick="backToParent()">✏️ New drawing</button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════
+const S = {
+  mode: 'parent',
+  strokes: [],
+  childIdx: 0,
+  animHandle: null,
+  animIsRAF:  false,
+  childDrawing:     false,
+  childMatching:    false,   // guard: block new strokes while accepting
+  childCurrentPts:  [],
+  childDoneStrokes: [],
+};
+
+// ═══════════════════════════════════════
+//  CANVAS REFERENCES
+// ═══════════════════════════════════════
+const pCanvas = document.getElementById('parentCanvas');
+const pCtx    = pCanvas.getContext('2d');
+const aCanvas = document.getElementById('animCanvas');
+const aCtx    = aCanvas.getContext('2d');
+const cCanvas = document.getElementById('childCanvas');
+const cCtx    = cCanvas.getContext('2d');
+
+// ═══════════════════════════════════════
+//  SCROLL BLOCK
+// ═══════════════════════════════════════
+function blockScroll(el) {
+  ['touchstart','touchmove','touchend','touchcancel'].forEach(ev =>
+    el.addEventListener(ev, e => e.preventDefault(), { passive: false })
+  );
+}
+blockScroll(pCanvas);
+blockScroll(cCanvas);
+blockScroll(aCanvas);
+
+// ═══════════════════════════════════════
+//  SCREEN NAVIGATION
+// ═══════════════════════════════════════
+function showHome() {
+  stopAnim();
+  document.getElementById('homeScreen').classList.remove('hidden');
+  document.getElementById('alphaScreen').classList.add('hidden');
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('celebOverlay').classList.add('hidden');
+}
+
+function startHandDrawn() {
+  document.getElementById('homeScreen').classList.add('hidden');
+  document.getElementById('app').style.display = '';
+  sizeAllCanvases();
+  setMode('parent');
+  redrawParent();
+}
+
+function goHome() {
+  stopAnim();
+  S.strokes = [];
+  S.childIdx = 0;
+  S.childDoneStrokes = [];
+  S.childCurrentPts = [];
+  S.childMatching = false;
+  pCtx.clearRect(0,0,pCanvas.width,pCanvas.height);
+  aCtx.clearRect(0,0,aCanvas.width,aCanvas.height);
+  cCtx.clearRect(0,0,cCanvas.width,cCanvas.height);
+  // restore btnRedraw to default
+  const btnRedraw = document.getElementById('btnRedraw');
+  btnRedraw.textContent = '✏️ Redraw';
+  btnRedraw.onclick = backToParent;
+  showHome();
+}
+
+// ═══════════════════════════════════════
+//  ALPHABET MODE
+// ═══════════════════════════════════════
+
+// Stroke data: coords in a 200×220 virtual space, scaled to canvas at draw time
+const ALPHA_STROKES = {
+  A:[{pts:[[100,20],[60,190]]},{pts:[[100,20],[140,190]]},{pts:[[72,120],[128,120]]}],
+  B:[{pts:[[65,20],[65,190]]},{pts:[[65,20],[115,20],[135,52],[115,105],[65,105]]},{pts:[[65,105],[125,105],[148,138],[125,190],[65,190]]}],
+  C:[{pts:[[140,38],[105,20],[65,40],[45,75],[42,108],[48,145],[70,175],[105,192],[140,178]]}],
+  D:[{pts:[[65,20],[65,190]]},{pts:[[65,20],[125,20],[158,60],[162,105],[158,150],[125,190],[65,190]]}],
+  E:[{pts:[[65,20],[65,190]]},{pts:[[65,20],[140,20]]},{pts:[[65,105],[125,105]]},{pts:[[65,190],[140,190]]}],
+  F:[{pts:[[65,20],[65,190]]},{pts:[[65,20],[140,20]]},{pts:[[65,105],[120,105]]}],
+  G:[{pts:[[140,38],[105,20],[65,40],[45,75],[42,108],[48,145],[70,175],[105,192],[140,178],[140,108],[108,108]]}],
+  H:[{pts:[[65,20],[65,190]]},{pts:[[135,20],[135,190]]},{pts:[[65,105],[135,105]]}],
+  I:[{pts:[[75,20],[125,20]]},{pts:[[100,20],[100,190]]},{pts:[[75,190],[125,190]]}],
+  J:[{pts:[[110,20],[110,160],[95,182],[70,188],[52,178]]}],
+  K:[{pts:[[65,20],[65,190]]},{pts:[[65,105],[138,20]]},{pts:[[65,105],[138,190]]}],
+  L:[{pts:[[75,20],[75,190]]},{pts:[[75,190],[150,190]]}],
+  M:[{pts:[[50,20],[50,190]]},{pts:[[50,20],[100,110],[150,20]]},{pts:[[150,20],[150,190]]}],
+  N:[{pts:[[65,20],[65,190]]},{pts:[[65,20],[135,190]]},{pts:[[135,20],[135,190]]}],
+  O:[{pts:[[100,20],[62,28],[35,60],[28,105],[35,152],[62,182],[100,192],[138,182],[165,152],[172,105],[165,60],[138,28],[100,20]]}],
+  P:[{pts:[[65,20],[65,190]]},{pts:[[65,20],[118,20],[142,52],[118,105],[65,105]]}],
+  Q:[{pts:[[100,20],[62,28],[35,60],[28,105],[35,152],[62,182],[100,192],[138,182],[165,152],[172,105],[165,60],[138,28],[100,20]]},{pts:[[122,162],[150,188]]}],
+  R:[{pts:[[65,20],[65,190]]},{pts:[[65,20],[118,20],[142,52],[118,105],[65,105]]},{pts:[[65,105],[140,190]]}],
+  S:[{pts:[[138,38],[105,20],[68,38],[62,70],[85,100],[115,110],[140,138],[135,168],[105,185],[68,170]]}],
+  T:[{pts:[[45,20],[155,20]]},{pts:[[100,20],[100,190]]}],
+  U:[{pts:[[65,20],[65,158],[78,182],[100,192],[122,182],[135,158],[135,20]]}],
+  V:[{pts:[[60,20],[100,190]]},{pts:[[100,190],[140,20]]}],
+  W:[{pts:[[42,20],[72,175]]},{pts:[[72,175],[100,85]]},{pts:[[100,85],[128,175]]},{pts:[[128,175],[158,20]]}],
+  X:[{pts:[[58,20],[142,190]]},{pts:[[142,20],[58,190]]}],
+  Y:[{pts:[[58,20],[100,108]]},{pts:[[142,20],[100,108],[100,190]]}],
+  Z:[{pts:[[55,20],[145,20]]},{pts:[[145,20],[55,190]]},{pts:[[55,190],[145,190]]}],
+  '0':[{pts:[[100,20],[62,28],[35,60],[28,105],[35,152],[62,182],[100,192],[138,182],[165,152],[172,105],[165,60],[138,28],[100,20]]}],
+  '1':[{pts:[[82,35],[100,20]]},{pts:[[100,20],[100,190]]}],
+  '2':[{pts:[[68,52],[88,20],[130,22],[148,52],[132,82],[68,142],[58,190],[142,190]]}],
+  '3':[{pts:[[68,20],[132,20],[150,52],[110,100],[150,148],[130,188],[68,190]]}],
+  '4':[{pts:[[122,20],[58,122]]},{pts:[[58,122],[148,122]]},{pts:[[122,20],[122,190]]}],
+  '5':[{pts:[[132,20],[68,20]]},{pts:[[68,20],[68,102]]},{pts:[[68,102],[122,95],[150,128],[132,180],[85,192],[60,175]]}],
+  '6':[{pts:[[132,32],[102,20],[62,48],[42,88],[45,138],[68,178],[108,196],[145,182],[165,150],[162,115],[138,92],[102,88],[68,105],[55,135],[60,165],[85,185],[115,185],[145,170]]}],
+  '7':[{pts:[[55,20],[145,20]]},{pts:[[145,20],[78,190]]}],
+  '8':[{pts:[[100,105],[70,88],[55,62],[70,35],[100,20],[130,35],[145,62],[130,88],[100,105],[70,122],[55,150],[70,178],[100,192],[130,178],[145,150],[130,122],[100,105]]}],
+  '9':[{pts:[[100,102],[130,95],[152,68],[145,38],[122,20],[92,18],[62,32],[50,60],[55,92],[75,110],[100,112],[132,118],[135,155],[130,188],[112,198]]}],
+};
+
+// Virtual space the stroke data lives in
+const ALPHA_VW = 200, ALPHA_VH = 220;
+
+// Scale a point from virtual 200×220 to actual canvas pixels, centered with margin
+function alphaScalePt(p, cw, ch) {
+  const margin = Math.min(cw, ch) * 0.12;
+  const scaleX = (cw - margin*2) / ALPHA_VW;
+  const scaleY = (ch - margin*2) / ALPHA_VH;
+  const scale  = Math.min(scaleX, scaleY);
+  const offX   = (cw - ALPHA_VW * scale) / 2;
+  const offY   = (ch - ALPHA_VH * scale) / 2;
+  return { x: p[0]*scale + offX, y: p[1]*scale + offY };
+}
+
+function alphaStrokesToS(char, cw, ch) {
+  const raw = ALPHA_STROKES[char];
+  if (!raw) return [];
+  return raw.map(stroke => {
+    const pts = stroke.pts.map(p => alphaScalePt(p, cw, ch));
+    return { pts, analysis: analyzeStroke(pts) };
+  });
+}
+
+function startAlphabet() {
+  document.getElementById('homeScreen').classList.add('hidden');
+  // Build picker
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+  const digits  = '0123456789'.split('');
+  document.getElementById('alphaLetters').innerHTML =
+    letters.map(c=>`<button class="alpha-btn" onclick="pickAlphaChar('${c}')">${c}</button>`).join('');
+  document.getElementById('alphaDigits').innerHTML =
+    digits.map(c=>`<button class="alpha-btn" onclick="pickAlphaChar('${c}')">${c}</button>`).join('');
+  document.getElementById('alphaScreen').classList.remove('hidden');
+}
+
+function pickAlphaChar(char) {
+  document.getElementById('alphaScreen').classList.add('hidden');
+  document.getElementById('app').style.display = '';
+  sizeAllCanvases();
+
+  // Generate strokes scaled to canvas
+  const strokes = alphaStrokesToS(char, aCanvas.width, aCanvas.height);
+  if (!strokes.length) { showHome(); return; }
+
+  // Load into state exactly like hand-drawn child mode
+  S.strokes = strokes;
+  S.childIdx = 0;
+  S.childDoneStrokes = strokes.map(() => []);
+  S.childCurrentPts = [];
+  S.childMatching = false;
+
+  // Show alphabet-specific toolbar state
+  S.mode = 'child';
+  document.getElementById('modeLabel').textContent = `✍️ ${char}`;
+  document.getElementById('btnHome').style.display   = '';
+  document.getElementById('btnUndo').style.display   = 'none';
+  document.getElementById('btnClear').style.display  = 'none';
+  document.getElementById('btnApprove').style.display= 'none';
+  document.getElementById('btnReplay').style.display = '';
+  document.getElementById('btnRedraw').style.display = 'none';
+  // Add a "pick another" button behaviour — reuse btnRedraw slot
+  const btnRedraw = document.getElementById('btnRedraw');
+  btnRedraw.textContent = '🔤 Pick';
+  btnRedraw.onclick = () => { goHome(); startAlphabet(); };
+  btnRedraw.style.display = '';
+  document.getElementById('strokeCounter').style.display = 'none';
+  pCanvas.style.display = 'none';
+  aCanvas.style.display = '';
+  cCanvas.style.display = '';
+
+  // Clear canvases
+  aCtx.clearRect(0,0,aCanvas.width,aCanvas.height);
+  cCtx.clearRect(0,0,cCanvas.width,cCanvas.height);
+
+  renderChildStroke();
+}
+
+// ═══════════════════════════════════════
+//  SIZING
+// ═══════════════════════════════════════
+function sizeAllCanvases() {
+  const wrap = document.getElementById('canvasWrap');
+  const w = wrap.clientWidth, h = wrap.clientHeight;
+  [pCanvas, aCanvas, cCanvas].forEach(c => {
+    if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+  });
+}
+
+window.addEventListener('resize', () => {
+  sizeAllCanvases();
+  if (S.mode === 'parent') redrawParent();
+  else                     renderChildStroke();
+});
+
+// ═══════════════════════════════════════
+//  MODE SWITCHING
+// ═══════════════════════════════════════
+function setMode(m) {
+  S.mode = m;
+  const isParent = m === 'parent';
+
+  document.getElementById('modeLabel').textContent = isParent ? '✏️ Parent: Draw' : '🧒 Child: Trace';
+  document.getElementById('btnUndo').style.display    = isParent ? '' : 'none';
+  document.getElementById('btnClear').style.display   = isParent ? '' : 'none';
+  document.getElementById('btnApprove').style.display = isParent ? '' : 'none';
+  document.getElementById('btnReplay').style.display  = isParent ? 'none' : '';
+  document.getElementById('btnRedraw').style.display  = isParent ? 'none' : '';
+
+  pCanvas.style.display = isParent ? '' : 'none';
+  aCanvas.style.display = isParent ? 'none' : '';
+  cCanvas.style.display = isParent ? 'none' : '';
+
+  document.getElementById('strokeCounter').style.display = isParent ? '' : 'none';
+
+  if (isParent) updateApproveBtn();
+}
+
+function updateApproveBtn() {
+  document.getElementById('btnApprove').style.display = S.strokes.length > 0 ? '' : 'none';
+}
+
+function approveDrawing() {
+  if (!S.strokes.length) return;
+  S.childIdx = 0;
+  S.childDoneStrokes = S.strokes.map(() => []);
+  S.childCurrentPts  = [];
+  setMode('child');
+  sizeAllCanvases();
+  renderChildStroke();
+}
+
+function backToParent() {
+  stopAnim();
+  document.getElementById('celebOverlay').classList.add('hidden');
+  S.strokes = [];
+  S.childIdx = 0;
+  S.childDoneStrokes = [];
+  S.childCurrentPts = [];
+  S.childMatching = false;
+  pCtx.clearRect(0,0,pCanvas.width,pCanvas.height);
+  aCtx.clearRect(0,0,aCanvas.width,aCanvas.height);
+  cCtx.clearRect(0,0,cCanvas.width,cCanvas.height);
+  setMode('parent');
+  sizeAllCanvases();
+  redrawParent();
+}
+
+// ═══════════════════════════════════════
+//  PARENT DRAWING
+// ═══════════════════════════════════════
+let pDrawing = false, pCurrent = [];
+
+function pXY(e) {
+  const r = pCanvas.getBoundingClientRect();
+  const src = e.touches ? e.touches[0] : e;
+  return { x: src.clientX - r.left, y: src.clientY - r.top };
+}
+function pDown(e) {
+  e.preventDefault();
+  if (S.mode !== 'parent') return;
+  pDrawing = true; pCurrent = [];
+  const p = pXY(e); pCurrent.push(p);
+  pCtx.beginPath(); pCtx.moveTo(p.x, p.y);
+  if (e.pointerId !== undefined) pCanvas.setPointerCapture(e.pointerId);
+}
+function pMove(e) {
+  e.preventDefault();
+  if (!pDrawing) return;
+  const p = pXY(e); pCurrent.push(p);
+  pCtx.strokeStyle = '#1a1f3a'; pCtx.lineWidth = 4;
+  pCtx.lineCap = 'round'; pCtx.lineJoin = 'round';
+  pCtx.lineTo(p.x, p.y); pCtx.stroke();
+  pCtx.beginPath(); pCtx.moveTo(p.x, p.y);
+}
+function pUp(e) {
+  e.preventDefault();
+  if (!pDrawing) return;
+  pDrawing = false;
+  if (pCurrent.length < 2) return;
+  const pts = simplify(pCurrent, 3);
+  S.strokes.push({ pts, analysis: analyzeStroke(pts) });
+  const n = S.strokes.length;
+  document.getElementById('strokeCounter').textContent = `${n} stroke${n>1?'s':''}`;
+  drawBadge(pCtx, pts[0], n, '#3a7bd5');
+  updateApproveBtn();
+}
+pCanvas.addEventListener('pointerdown',  pDown);
+pCanvas.addEventListener('pointermove',  pMove);
+pCanvas.addEventListener('pointerup',    pUp);
+pCanvas.addEventListener('pointercancel',() => { pDrawing = false; });
+pCanvas.addEventListener('touchstart', pDown, { passive:false });
+pCanvas.addEventListener('touchmove',  pMove, { passive:false });
+pCanvas.addEventListener('touchend',   pUp,   { passive:false });
+
+function redrawParent() {
+  pCtx.clearRect(0,0,pCanvas.width,pCanvas.height);
+  drawGuides(pCtx, pCanvas.width, pCanvas.height);
+  S.strokes.forEach((s,i) => {
+    drawPath(pCtx, s.pts, '#1a1f3a', 4);
+    drawBadge(pCtx, s.pts[0], i+1, '#3a7bd5');
+  });
+}
+function undoStroke() {
+  if (!S.strokes.length) return;
+  S.strokes.pop();
+  document.getElementById('strokeCounter').textContent =
+    `${S.strokes.length} stroke${S.strokes.length!==1?'s':''}`;
+  redrawParent();
+  updateApproveBtn();
+}
+function clearParent() {
+  S.strokes = [];
+  document.getElementById('strokeCounter').textContent = '0 strokes';
+  redrawParent();
+  updateApproveBtn();
+}
+
+// ═══════════════════════════════════════
+//  STROKE ANALYSIS
+// ═══════════════════════════════════════
+function analyzeStroke(pts) {
+  if (pts.length < 2) return { arrow:'•', main:'Make a dot', sub:'Press and lift.', isStraight:true };
+  const s = pts[0], e = pts[pts.length-1];
+  const dx = e.x-s.x, dy = e.y-s.y;
+  const len = Math.sqrt(dx*dx+dy*dy);
+  const curv = maxDev(pts,s,e) / (len+1);
+  const angle = Math.atan2(dy,dx)*180/Math.PI;
+  const dir   = angleToDir(angle);
+  const arrow = dirArrow(dir);
+
+  if (curv < 0.18) return { arrow, isStraight:true, ...straightInstr(dir) };
+
+  const n = pts.length;
+  const mid = pts[Math.floor(n/2)];
+  const fdx=mid.x-s.x, fdy=mid.y-s.y, sdx=e.x-mid.x, sdy=e.y-mid.y;
+  const dx2=dx, dy2=dy;
+  const cross = dx2*(mid.y-s.y) - dy2*(mid.x-s.x);
+  const closeDist = Math.hypot(e.x-s.x,e.y-s.y);
+  const isLoop = closeDist<len*0.3 && curv>0.25;
+
+  if (isLoop)                                 return { arrow:'🔄', isStraight:false, main:'Draw a full loop — round and closed', sub:'Start at the dot, go all the way round and return to where you started.' };
+  if (fdy>0&&sdy<0&&Math.abs(fdy)>len*0.2)   return { arrow:'∪',  isStraight:false, main:'Curve down then back up — like a U', sub:'Down one side, round the bottom, back up the other side.' };
+  if (fdy<0&&sdy>0&&Math.abs(fdy)>len*0.2)   return { arrow:'∩',  isStraight:false, main:'Arch upward then come back down', sub:'Up and over like a little hill, then back down.' };
+  if (fdx>0&&sdx<0&&Math.abs(fdx)>len*0.2)   return { arrow:'(',  isStraight:false, main:'Curve to the left — like a C', sub:'Sweep out left and curve back.' };
+  if (fdx<0&&sdx>0&&Math.abs(fdx)>len*0.2)   return { arrow:')',  isStraight:false, main:'Curve to the right — like a backwards C', sub:'Sweep out right and curve back.' };
+
+  const q1=pts[Math.floor(n*.25)], q3=pts[Math.floor(n*.75)];
+  const c1=(mid.x-s.x)*(q1.y-s.y)-(mid.y-s.y)*(q1.x-s.x);
+  const c2=(e.x-mid.x)*(q3.y-mid.y)-(e.y-mid.y)*(q3.x-mid.x);
+  if (Math.sign(c1)!==Math.sign(c2)&&curv>0.2) return { arrow:'S', isStraight:false, main:'Draw an S-curve — like a snake', sub:'Curve one way, then smoothly sweep the other way.' };
+
+  const bump=cross>0?'right':'left';
+  return { arrow:bump==='right'?')':'(', isStraight:false, main:`Curved stroke — bulging to the ${bump}`, sub:'Follow the orange path carefully.' };
+}
+function straightInstr(d){
+  return ({
+    right:       {main:'Draw a line to the right →',         sub:'Flat and steady — left to right.'},
+    left:        {main:'Draw a line to the left ←',          sub:'Flat and steady — right to left.'},
+    down:        {main:'Draw a line straight down ↓',        sub:'Tall and straight — like a pole.'},
+    up:          {main:'Draw a line straight up ↑',          sub:'Straight upward.'},
+    'down-right':{main:'Diagonal down to the right ↘',       sub:'Slant from top-left to bottom-right.'},
+    'down-left': {main:'Diagonal down to the left ↙',        sub:'Slant from top-right to bottom-left.'},
+    'up-right':  {main:'Diagonal up to the right ↗',         sub:'Slant from bottom-left to top-right.'},
+    'up-left':   {main:'Diagonal up to the left ↖',          sub:'Slant from bottom-right to top-left.'},
+  })[d]||{main:'Draw the stroke',sub:'Follow the orange path.'};
+}
+function angleToDir(a){
+  const n=((a%360)+360)%360;
+  if(n>=337.5||n<22.5)  return 'right';
+  if(n<67.5)  return 'down-right';
+  if(n<112.5) return 'down';
+  if(n<157.5) return 'down-left';
+  if(n<202.5) return 'left';
+  if(n<247.5) return 'up-left';
+  if(n<292.5) return 'up';
+  return 'up-right';
+}
+function dirArrow(d){return{right:'→',left:'←',down:'↓',up:'↑','down-right':'↘','down-left':'↙','up-right':'↗','up-left':'↖'}[d]||'•';}
+function maxDev(pts,s,e){
+  const dx=e.x-s.x,dy=e.y-s.y,len=Math.sqrt(dx*dx+dy*dy);
+  if(!len)return 0;
+  return pts.reduce((m,p)=>Math.max(m,Math.abs((p.x-s.x)*dy-(p.y-s.y)*dx)/len),0);
+}
+function simplify(pts,eps){
+  if(pts.length<=2)return pts;
+  let mx=0,mi=0;
+  const s=pts[0],e=pts[pts.length-1];
+  for(let i=1;i<pts.length-1;i++){const d=p2s(pts[i],s,e);if(d>mx){mx=d;mi=i;}}
+  if(mx>eps){const L=simplify(pts.slice(0,mi+1),eps),R=simplify(pts.slice(mi),eps);return[...L.slice(0,-1),...R];}
+  return[s,e];
+}
+function p2s(p,a,b){
+  const dx=b.x-a.x,dy=b.y-a.y;
+  if(!dx&&!dy)return Math.hypot(p.x-a.x,p.y-a.y);
+  const t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy)));
+  return Math.hypot(p.x-(a.x+t*dx),p.y-(a.y+t*dy));
+}
+
+// ═══════════════════════════════════════
+//  CHILD MODE
+// ═══════════════════════════════════════
+// Scale from parent canvas coords to child/anim canvas coords
+function scaledPts(pts) {
+  const fw = pCanvas.width  || aCanvas.width;
+  const fh = pCanvas.height || aCanvas.height;
+  const tw = aCanvas.width, th = aCanvas.height;
+  return pts.map(p => ({ x: p.x*tw/fw, y: p.y*th/fh }));
+}
+
+function drawAnimLayer() {
+  aCtx.clearRect(0,0,aCanvas.width,aCanvas.height);
+  drawGuides(aCtx, aCanvas.width, aCanvas.height);
+  const idx=S.childIdx, all=S.strokes;
+  // Ghost of ALL strokes (very faint) so child knows where to draw
+  all.forEach(s => drawPath(aCtx, scaledPts(s.pts), 'rgba(160,140,100,0.12)', 6));
+  // No green completed strokes here — those live on cCanvas
+}
+
+function redrawChildLayer() {
+  cCtx.clearRect(0,0,cCanvas.width,cCanvas.height);
+  // Accepted strokes — solid dark
+  for(let i=0;i<S.childIdx;i++){
+    const d=S.childDoneStrokes[i];
+    if(d&&d.length>1) drawPath(cCtx,d,'#1a1f3a',5);
+  }
+  // Current live stroke
+  if(S.childCurrentPts.length>1) drawPath(cCtx,S.childCurrentPts,'#1a1f3a',5);
+}
+
+function cXY(e){
+  const r=cCanvas.getBoundingClientRect();
+  const src=e.touches?e.touches[0]:e;
+  return{x:src.clientX-r.left,y:src.clientY-r.top};
+}
+function cDown(e){
+  e.preventDefault();
+  if(S.mode!=='child' || S.childMatching)return;
+  S.childDrawing=true; S.childCurrentPts=[];
+  const p=cXY(e); S.childCurrentPts.push(p);
+  if(e.pointerId!==undefined) cCanvas.setPointerCapture(e.pointerId);
+}
+function cMove(e){
+  e.preventDefault();
+  if(!S.childDrawing)return;
+  S.childCurrentPts.push(cXY(e));
+  redrawChildLayer();
+}
+function cUp(e){
+  e.preventDefault();
+  if(!S.childDrawing)return;
+  S.childDrawing=false;
+  if(S.childCurrentPts.length<2)return;
+  if(S.childMatching)return;   // already processing a stroke
+  if(S.childIdx>=S.strokes.length)return;  // out of bounds guard
+  S.childDoneStrokes[S.childIdx]=[...S.childCurrentPts];
+  redrawChildLayer();
+  matchStroke(S.childCurrentPts);
+}
+cCanvas.addEventListener('pointerdown',  cDown);
+cCanvas.addEventListener('pointermove',  cMove);
+cCanvas.addEventListener('pointerup',    cUp);
+cCanvas.addEventListener('pointercancel',()=>{S.childDrawing=false;});
+cCanvas.addEventListener('touchstart',cDown,{passive:false});
+cCanvas.addEventListener('touchmove', cMove,{passive:false});
+cCanvas.addEventListener('touchend',  cUp,  {passive:false});
+
+function renderChildStroke(){
+  stopAnim();
+  drawAnimLayer();
+  redrawChildLayer();
+  if(S.childIdx<S.strokes.length) animGuide(S.childIdx);
+}
+
+function updateInstrOverlay(){
+  const idx=S.childIdx, all=S.strokes;
+  if(idx>=all.length)return;
+  const a=all[idx].analysis;
+  document.getElementById('instrArrow').textContent=a.arrow;
+  document.getElementById('instrMain').textContent=a.main;
+  document.getElementById('instrSub').textContent=a.sub;
+  document.getElementById('instrBadge').textContent=`${idx+1}/${all.length}`;
+  document.getElementById('dotsRow').innerHTML=
+    all.map((_,i)=>`<div class="sdot ${i<idx?'done':i===idx?'active':''}"></div>`).join('');
+}
+
+// ── Guide animation ──
+function animGuide(idx){
+  stopAnim();
+  const pts=scaledPts(S.strokes[idx].pts);
+  if(pts.length<2)return;
+  const segs=[]; let total=0;
+  for(let i=1;i<pts.length;i++){const d=Math.hypot(pts[i].x-pts[i-1].x,pts[i].y-pts[i-1].y);segs.push(d);total+=d;}
+  const dur=Math.max(700,total*3.5);
+  let t0=null;
+  function frame(ts){
+    if(!t0)t0=ts;
+    const prog=Math.min((ts-t0)/dur,1);
+    drawAnimLayer();
+    // draw partial orange stroke
+    const dl=total*prog; let drawn=0;
+    aCtx.beginPath(); aCtx.strokeStyle='#f4a030'; aCtx.lineWidth=8; aCtx.lineCap='round'; aCtx.lineJoin='round';
+    aCtx.moveTo(pts[0].x,pts[0].y);
+    for(let i=1;i<pts.length;i++){
+      const seg=segs[i-1];
+      if(drawn+seg<=dl){aCtx.lineTo(pts[i].x,pts[i].y);drawn+=seg;}
+      else{const f=(dl-drawn)/seg;aCtx.lineTo(pts[i-1].x+f*(pts[i].x-pts[i-1].x),pts[i-1].y+f*(pts[i].y-pts[i-1].y));break;}
+    }
+    aCtx.stroke();
+    const pulse=0.5+0.5*Math.sin(ts*0.005);
+    drawStartDot(aCtx,pts[0],pulse);
+    drawBadge(aCtx,pts[0],idx+1,'#e8621a');
+    if(prog<1){S.animIsRAF=true;S.animHandle=requestAnimationFrame(frame);}
+    else{S.animIsRAF=false;S.animHandle=setTimeout(()=>{t0=null;S.animIsRAF=true;S.animHandle=requestAnimationFrame(frame);},1100);}
+  }
+  S.animIsRAF=true; S.animHandle=requestAnimationFrame(frame);
+}
+
+function stopAnim(){
+  if(S.animHandle!==null){
+    S.animIsRAF?cancelAnimationFrame(S.animHandle):clearTimeout(S.animHandle);
+    S.animHandle=null;
+  }
+}
+
+// ── Stroke matching ──
+const MARGIN_FRAC   = 0.38;
+const ANGLE_TOL_DEG = 65;
+const MID_MARGIN    = 0.45;
+
+function matchStroke(childPts){
+  if(S.childIdx>=S.strokes.length)return;
+  const target=S.strokes[S.childIdx];
+  const tPts=scaledPts(target.pts);
+  const diag=Math.hypot(aCanvas.width,aCanvas.height);
+  const margin=diag*MARGIN_FRAC;
+  const cS=childPts[0], cE=childPts[childPts.length-1];
+  const tS=tPts[0],     tE=tPts[tPts.length-1];
+
+  const startDist=Math.hypot(cS.x-tS.x,cS.y-tS.y);
+  if(startDist>margin){showFeedback(false,`Start closer to the dot`);return;}
+
+  const endDist=Math.hypot(cE.x-tE.x,cE.y-tE.y);
+  if(endDist>margin){showFeedback(false,`Finish the stroke further`);return;}
+
+  const cA=Math.atan2(cE.y-cS.y,cE.x-cS.x)*180/Math.PI;
+  const tA=Math.atan2(tE.y-tS.y,tE.x-tS.x)*180/Math.PI;
+  let diff=Math.abs(cA-tA); if(diff>180)diff=360-diff;
+  if(diff>ANGLE_TOL_DEG){showFeedback(false,`Wrong direction`);return;}
+
+  if(!target.analysis.isStraight){
+    const cM=childPts[Math.floor(childPts.length/2)];
+    const tM=tPts[Math.floor(tPts.length/2)];
+    if(Math.hypot(cM.x-tM.x,cM.y-tM.y)>diag*MID_MARGIN){showFeedback(false,`Follow the curve`);return;}
+  }
+
+  // ✅ accepted — lock immediately, advance after brief green flash
+  S.childMatching=true;
+  flashCanvas('rgba(61,170,110,0.18)', ()=>advanceStroke());
+}
+
+function showFeedback(good, msg){
+  // brief toast only for errors
+  const toast=document.getElementById('feedbackToast');
+  toast.textContent=msg;
+  toast.className='bad';
+  toast.style.display='block';
+  // shake canvas briefly
+  const wrap=document.getElementById('canvasWrap');
+  wrap.classList.remove('shake'); void wrap.offsetWidth; wrap.classList.add('shake');
+  // clear failed attempt after shake
+  setTimeout(()=>{
+    S.childCurrentPts=[];
+    S.childDoneStrokes[S.childIdx]=[];
+    redrawChildLayer();
+  }, 300);
+  setTimeout(()=>{ toast.style.display='none'; }, 1200);
+}
+
+// Quick canvas colour flash then callback — no DOM overlay needed
+function flashCanvas(color, cb){
+  const wrap=document.getElementById('canvasWrap');
+  wrap.style.transition='background-color 0.05s';
+  wrap.style.backgroundColor=color;
+  setTimeout(()=>{
+    wrap.style.backgroundColor='';
+    setTimeout(()=>{ wrap.style.transition=''; if(cb)cb(); }, 50);
+  }, 150);
+}
+
+function advanceStroke(){
+  S.childMatching=false;
+  stopAnim();
+  S.childCurrentPts=[];
+  aCtx.clearRect(0,0,aCanvas.width,aCanvas.height);
+  S.childIdx++;
+  if(S.childIdx>=S.strokes.length){
+    cCtx.clearRect(0,0,cCanvas.width,cCanvas.height);
+    S.childDoneStrokes.forEach(d=>{ if(d&&d.length>1) drawPath(cCtx,d,'#1a1f3a',5); });
+    // Set celebration second button based on mode
+    const btn = document.getElementById('celebSecondBtn');
+    const isAlpha = document.getElementById('btnRedraw').textContent.includes('Pick');
+    if (isAlpha) {
+      btn.textContent = '🔤 Pick another';
+      btn.onclick = () => { goHome(); startAlphabet(); };
+    } else {
+      btn.textContent = '✏️ New drawing';
+      btn.onclick = backToParent;
+    }
+    setTimeout(()=>document.getElementById('celebOverlay').classList.remove('hidden'),200);
+  } else {
+    renderChildStroke();
+  }
+}
+
+function replayStroke(){
+  S.childCurrentPts=[];
+  S.childDoneStrokes[S.childIdx]=[];
+  renderChildStroke();
+}
+
+function restartChild(){
+  document.getElementById('celebOverlay').classList.add('hidden');
+  S.childIdx=0;
+  S.childMatching=false;
+  S.childDoneStrokes=S.strokes.map(()=>[]);
+  S.childCurrentPts=[];
+  cCtx.clearRect(0,0,cCanvas.width,cCanvas.height);
+  renderChildStroke();
+}
+
+// ═══════════════════════════════════════
+//  SHARED DRAW HELPERS
+// ═══════════════════════════════════════
+function drawPath(ctx,pts,color,width,alpha){
+  if(pts.length<2)return;
+  ctx.save();
+  if(alpha!==undefined)ctx.globalAlpha=alpha;
+  ctx.beginPath();ctx.strokeStyle=color;ctx.lineWidth=width||4;
+  ctx.lineCap='round';ctx.lineJoin='round';
+  ctx.moveTo(pts[0].x,pts[0].y);
+  pts.slice(1).forEach(p=>ctx.lineTo(p.x,p.y));
+  ctx.stroke();ctx.restore();
+}
+function drawBadge(ctx,pt,num,color){
+  const cx=pt.x-14,cy=pt.y-14;
+  ctx.save();ctx.beginPath();ctx.arc(cx,cy,10,0,Math.PI*2);
+  ctx.fillStyle=color||'#3a7bd5';ctx.fill();
+  ctx.fillStyle='white';ctx.font='bold 11px Nunito,sans-serif';
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(num,cx,cy);ctx.restore();
+}
+function drawStartDot(ctx,pt,alpha){
+  ctx.save();ctx.globalAlpha=alpha||1;
+  ctx.beginPath();ctx.arc(pt.x,pt.y,9,0,Math.PI*2);ctx.fillStyle='#e8621a';ctx.fill();
+  ctx.beginPath();ctx.arc(pt.x,pt.y,15,0,Math.PI*2);
+  ctx.strokeStyle='#e8621a';ctx.lineWidth=2.5;ctx.globalAlpha=(alpha||1)*0.3;ctx.stroke();
+  ctx.restore();
+}
+function drawGuides(ctx,w,h){
+  ctx.save();ctx.strokeStyle='#e4dccf';ctx.lineWidth=1;ctx.setLineDash([5,9]);
+  [0.2,0.55,0.82].forEach(f=>{
+    const y=Math.round(h*f);
+    ctx.beginPath();ctx.moveTo(16,y);ctx.lineTo(w-16,y);ctx.stroke();
+  });
+  ctx.setLineDash([]);ctx.restore();
+}
+
+// ═══════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════
+showHome();
+</script>
+</body>
+</html>
